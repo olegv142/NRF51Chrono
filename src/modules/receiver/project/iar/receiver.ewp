@@ -330,6 +330,7 @@
           <state>$PROJ_DIR$\..\..\..\..\..\components\drivers_nrf\clock</state>
           <state>$PROJ_DIR$\..\..\..\..\..\components\drivers_nrf\common</state>
           <state>$PROJ_DIR$\..\..\..\..\..\components\drivers_nrf\hal</state>
+          <state>$PROJ_DIR$\..\..\..\..\..\components\drivers_nrf\uart</state>
           <state>$PROJ_DIR$\..\..\..\..\..\components\drivers_nrf\nrf_soc_nosd</state>
           <state>$PROJ_DIR$\..\..\..\..\..\components\drivers_nrf\rtc</state>
           <state>$PROJ_DIR$\..\..\..\..\..\components\drivers_nrf\config</state>
@@ -1003,6 +1004,9 @@
     <file>
       <name>$PROJ_DIR$\..\..\..\common\role.c</name>
     </file>
+    <file>
+      <name>$PROJ_DIR$\..\..\..\common\uart.c</name>
+    </file>
   </group>
   <group>
     <name>Device</name>
@@ -1017,6 +1021,9 @@
     <name>nRF_Drivers</name>
     <file>
       <name>$PROJ_DIR$\..\..\..\..\..\components\drivers_nrf\common\nrf_drv_common.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\..\..\..\..\components\drivers_nrf\uart\nrf_drv_uart.c</name>
     </file>
   </group>
   <group>

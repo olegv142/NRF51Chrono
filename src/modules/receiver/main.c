@@ -21,15 +21,26 @@
  */
 
 #include "nrf.h"
-#include "nrf_drv_clock.h"
 #include "radio.h"
 #include "packet.h"
 #include "role.h"
+#include "bug.h"
+#include "uart.h"
 #include "channels.h"
 #include "app_error.h"
 
 // Report packet
 struct report_packet g_report_packet;
+
+void uart_rx_process(void)
+{
+    int i;
+    for (i = 0; i < UART_TX_BUFF_SZ-1; ++i)
+        g_uart_tx_buff[i] = '0' + i % 10;
+    g_uart_tx_buff[UART_TX_BUFF_SZ-1] = '\r';
+    g_uart_tx_len = UART_TX_BUFF_SZ;
+    uart_tx_flush();
+}
 
 static void on_packet_received(void)
 {
@@ -42,10 +53,14 @@ static void on_packet_received(void)
 int main(void)
 {
     unsigned role = role_get();
+
+    uart_init();
+ 
     radio_configure(
-        &g_report_packet, sizeof(g_report_packet),
-        role & ROLE_GR_SELECT ? GR1_CH : GR0_CH
-    );
+            &g_report_packet, sizeof(g_report_packet),
+            role & ROLE_GR_SELECT ? GR1_CH : GR0_CH
+        );
+
     receiver_on();
 
     while (true)
