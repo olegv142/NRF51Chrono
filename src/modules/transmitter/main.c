@@ -33,6 +33,7 @@
 #include "role.h"
 #include "radio.h"
 #include "packet.h"
+#include "channels.h"
 #include "app_util_platform.h"
 
 #include <stdint.h>
@@ -73,7 +74,7 @@ unsigned g_report_sn;
 int g_report_req;
 
 // Reporting period
-unsigned g_reporting_ticks[MAX_SLAVE_ROLES] = {
+unsigned g_reporting_ticks[MAX_GR_ROLES] = {
     191, 193, 197, 199, 211, 223, 227, 229 // prime numbers
 };
 
@@ -260,13 +261,18 @@ static void btn_config(void)
  */
 int main(void)
 {
-    g_role = role_get();
-    BUG_ON(g_role >= MAX_SLAVE_ROLES);
+    unsigned role = role_get();
+    g_role = role & ROLE_MASK;
+    BUG_ON(g_role >= MAX_GR_ROLES);
     nrf_gpio_cfg_output(LED_PWR);
     btn_config();
     adc_config();
     rtc_config();
-    radio_configure(&g_report_packet, sizeof(g_report_packet));
+
+    radio_configure(
+        &g_report_packet, sizeof(g_report_packet),
+        role & ROLE_GR_SELECT ? GR1_CH : GR0_CH
+    );
 
     rtc_cc_schedule(CC_PERIODIC, reporting_ticks());
 

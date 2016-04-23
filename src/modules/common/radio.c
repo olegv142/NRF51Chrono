@@ -8,12 +8,12 @@
 #define PACKET_BASE_ADDRESS_LENGTH 4
 #define WHITEIV 0
 
-void radio_configure(void* packet, unsigned sz)
+void radio_configure(void* packet, unsigned sz, unsigned ch)
 {
     // Radio config
     NRF_RADIO->TXPOWER   = (RADIO_TXPOWER_TXPOWER_Pos4dBm << RADIO_TXPOWER_TXPOWER_Pos);
-    NRF_RADIO->FREQUENCY = 27UL;  // 2427MHz
     NRF_RADIO->MODE      = (RADIO_MODE_MODE_Nrf_250Kbit << RADIO_MODE_MODE_Pos);
+    NRF_RADIO->FREQUENCY = ch;
 
     // Radio address config
     NRF_RADIO->PREFIX0 = 0x76767676;  

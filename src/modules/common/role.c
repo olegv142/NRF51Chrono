@@ -6,7 +6,7 @@
 #define FINISH_PIN 23
 #define CHAN0_PIN  24
 #define CHAN1_PIN  25
-#define MASTER_PIN 0
+#define GR_SELECT_PIN 0
 
 #define ROLE_READ_DELAY 10
 
@@ -19,7 +19,7 @@ static struct role_inp s_role_map[] = {
 	{FINISH_PIN, 1},
 	{CHAN0_PIN, 1<<1},
 	{CHAN1_PIN, 1<<2},
-	{MASTER_PIN, ROLE_MASTER}
+	{GR_SELECT_PIN, ROLE_GR_SELECT}
 };
 
 #define ROLE_PINS ARRAY_SZ(s_role_map)

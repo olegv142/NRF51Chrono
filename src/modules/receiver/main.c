@@ -24,7 +24,8 @@
 #include "nrf_drv_clock.h"
 #include "radio.h"
 #include "packet.h"
-#include "sdk_errors.h"
+#include "role.h"
+#include "channels.h"
 #include "app_error.h"
 
 // Report packet
@@ -40,7 +41,11 @@ static void on_packet_received(void)
  */
 int main(void)
 {
-    radio_configure(&g_report_packet, sizeof(g_report_packet));
+    unsigned role = role_get();
+    radio_configure(
+        &g_report_packet, sizeof(g_report_packet),
+        role & ROLE_GR_SELECT ? GR1_CH : GR0_CH
+    );
     receiver_on();
 
     while (true)

@@ -2,12 +2,17 @@
 
 #include "nrf51.h"
 
-void radio_configure(void* packet, unsigned sz);
+// Setup radio given the packet buffer, packet size and frequency channel
+// Actual frequency will be 2400+ch Mhz
+void radio_configure(void* packet, unsigned sz, unsigned ch);
 
+// Send packet
 void send_packet(void);
 
+// Turn on receiver
 void receiver_on(void);
 
+// Start receiving
 void receive_start(void);
 
 static inline int receive_done(void)
