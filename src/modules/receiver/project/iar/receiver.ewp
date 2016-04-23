@@ -322,7 +322,7 @@
         </option>
         <option>
           <name>CCIncludePath2</name>
-          <state>$PROJ_DIR$\..\..\config\transmitter</state>
+          <state>$PROJ_DIR$\..\..\config\receiver</state>
           <state>$PROJ_DIR$\..\..\config</state>
           <state>$PROJ_DIR$\..\..\..\..\modules\common</state>
           <state>$PROJ_DIR$\..\..\..\..\..\components\device</state>
@@ -335,6 +335,7 @@
           <state>$PROJ_DIR$\..\..\..\..\..\components\drivers_nrf\config</state>
           <state>$PROJ_DIR$\..\..\..\..\..\components\drivers_nrf\delay</state>
           <state>$PROJ_DIR$\..\..\..\..\..\components\drivers_nrf\gpiote</state>
+          <state>$PROJ_DIR$\..\..\..\..\..\components\drivers_nrf\radio_config</state>
           <state>$PROJ_DIR$\..\..\..\..\..\components\libraries\util</state>
           <state>$PROJ_DIR$\..\..\..\..\bsp</state>
           <state>$PROJ_DIR$\..\..</state>
@@ -594,7 +595,7 @@
         </option>
         <option>
           <name>AUserIncludes</name>
-          <state>$PROJ_DIR$\..\..\config\transmitter</state>
+          <state>$PROJ_DIR$\..\..\config\receiver</state>
           <state>$PROJ_DIR$\..\..\config</state>
           <state>$PROJ_DIR$\..\..\..\..\..\components\device</state>
           <state>$PROJ_DIR$\..\..\..\..\..\components\toolchain</state>
@@ -640,7 +641,7 @@
         </option>
         <option>
           <name>OOCOutputFile</name>
-          <state>transmitter.hex</state>
+          <state>receiver.hex</state>
         </option>
         <option>
           <name>OOCCommandLineProducer</name>
@@ -695,7 +696,7 @@
         </option>
         <option>
           <name>IlinkOutputFile</name>
-          <state>transmitter.out</state>
+          <state>receiver.out</state>
         </option>
         <option>
           <name>IlinkDebugInfoEnable</name>
@@ -759,7 +760,7 @@
         </option>
         <option>
           <name>IlinkIcfFile</name>
-          <state>$PROJ_DIR$\transmitter.icf</state>
+          <state>$PROJ_DIR$\receiver.icf</state>
         </option>
         <option>
           <name>IlinkIcfFileSlave</name>
@@ -1015,16 +1016,7 @@
   <group>
     <name>nRF_Drivers</name>
     <file>
-      <name>$PROJ_DIR$\..\..\..\..\..\components\drivers_nrf\hal\nrf_adc.c</name>
-    </file>
-    <file>
       <name>$PROJ_DIR$\..\..\..\..\..\components\drivers_nrf\common\nrf_drv_common.c</name>
-    </file>
-    <file>
-      <name>$PROJ_DIR$\..\..\..\..\..\components\drivers_nrf\gpiote\nrf_drv_gpiote.c</name>
-    </file>
-    <file>
-      <name>$PROJ_DIR$\..\..\..\..\..\components\drivers_nrf\rtc\nrf_drv_rtc.c</name>
     </file>
   </group>
   <group>

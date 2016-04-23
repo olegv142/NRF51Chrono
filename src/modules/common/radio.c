@@ -1,9 +1,12 @@
 #include "radio.h"
 #include "packet.h"
 #include "radio.h"
+#include "bug.h"
+#include "clock.h"
 #include "nrf51_bitfields.h"
 
 #define PACKET_BASE_ADDRESS_LENGTH 4
+#define WHITEIV 0
 
 void radio_configure(void* packet, unsigned sz)
 {
@@ -22,7 +25,7 @@ void radio_configure(void* packet, unsigned sz)
     // Packet configuration
     NRF_RADIO->PCNF0 = 0; // use static length
     NRF_RADIO->PCNF1 = (RADIO_PCNF1_WHITEEN_Enabled  << RADIO_PCNF1_WHITEEN_Pos) |
-                       (RADIO_PCNF1_ENDIAN_Big       << RADIO_PCNF1_ENDIAN_Pos)  |
+                       (RADIO_PCNF1_ENDIAN_Little    << RADIO_PCNF1_ENDIAN_Pos)  |
                        (PACKET_BASE_ADDRESS_LENGTH   << RADIO_PCNF1_BALEN_Pos)   |
                        (sz                           << RADIO_PCNF1_STATLEN_Pos) |
                        (sz                           << RADIO_PCNF1_MAXLEN_Pos);
@@ -38,6 +41,12 @@ void radio_configure(void* packet, unsigned sz)
 
 void send_packet(void)
 {
+    int hf_clk_active = hf_osc_active();
+    if (!hf_clk_active)
+    {
+        hf_osc_start();
+    }
+
     NRF_RADIO->EVENTS_READY = 0U;
     NRF_RADIO->TASKS_TXEN   = 1;
 
@@ -45,6 +54,8 @@ void send_packet(void)
     {
         // wait
     }
+
+    NRF_RADIO->DATAWHITEIV = WHITEIV;
     NRF_RADIO->EVENTS_END  = 0U;
     NRF_RADIO->TASKS_START = 1U;
 
@@ -61,4 +72,37 @@ void send_packet(void)
     {
         // wait
     }
+
+    if (!hf_clk_active)
+    {
+        hf_osc_stop();
+    }
 }
+
+void receiver_on(void)
+{
+    int hf_clk_active = hf_osc_active();
+    if (!hf_clk_active)
+    {
+        hf_osc_start();
+    }
+
+    // Enable radio and wait for ready
+    NRF_RADIO->EVENTS_READY = 0U;
+    NRF_RADIO->TASKS_RXEN = 1U;
+    while (NRF_RADIO->EVENTS_READY == 0U)
+    {
+        // wait
+    }
+}
+
+void receive_start(void)
+{
+    BUG_ON(!hf_osc_active());
+
+    NRF_RADIO->DATAWHITEIV = WHITEIV;
+    NRF_RADIO->EVENTS_END = 0U;
+    // Start listening and wait for address received event
+    NRF_RADIO->TASKS_START = 1U;
+}
+

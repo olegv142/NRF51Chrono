@@ -25,8 +25,8 @@
 #include "nrf_drv_gpiote.h"
 #include "nrf_drv_config.h"
 #include "nrf_drv_rtc.h"
-#include "nrf_drv_clock.h"
 #include "nrf_adc.h"
+#include "clock.h"
 #include "boards.h"
 #include "app_error.h"
 #include "bug.h"
@@ -196,15 +196,6 @@ static void rtc_handler(nrf_drv_rtc_int_type_t int_type)
     }
 }
 
-/** @brief Function starting the internal LFCLK XTAL oscillator.
- */
-static void lfclk_config(void)
-{
-    ret_code_t err_code = nrf_drv_clock_init(NULL);
-    APP_ERROR_CHECK(err_code);
-    nrf_drv_clock_lfclk_request();
-}
-
 /** @brief Function initialization and configuration of RTC driver instance.
  */
 static void rtc_config(void)
@@ -214,6 +205,9 @@ static void rtc_config(void)
     //Initialize RTC instance
     err_code = nrf_drv_rtc_init(&rtc, NULL, rtc_handler);
     APP_ERROR_CHECK(err_code);
+
+    //Start 32768Hz crystal clock
+    lf_osc_start();
 
     //Power on RTC instance
     nrf_drv_rtc_enable(&rtc);
@@ -266,7 +260,6 @@ static void btn_config(void)
  */
 int main(void)
 {
-    lfclk_config();
     g_role = role_get();
     BUG_ON(g_role >= MAX_SLAVE_ROLES);
     nrf_gpio_cfg_output(LED_PWR);
