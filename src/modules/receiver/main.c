@@ -38,10 +38,15 @@ int g_stat_request;
 
 void uart_rx_process(void)
 {
-    if (g_uart_rx_buff[0] == 's') {
+    switch (g_uart_rx_buff[0]) {
+    case 's':
         g_stat_request = 1;
-    } else {
-        uart_printf("Hello!" UART_EOL);
+        break;
+    case '?':
+        stat_help();
+        break;
+    default:
+        uart_printf("valid commands are: s, ?" UART_EOL);
         uart_tx_flush();
     }
 }
