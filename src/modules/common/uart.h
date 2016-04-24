@@ -13,3 +13,4 @@ void uart_init(void);
 void uart_rx_process(void);
 void uart_tx_flush(void);
 
+void uart_printf(const char* fmt, ...);

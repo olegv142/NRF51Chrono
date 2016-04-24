@@ -24,6 +24,7 @@
 #include "radio.h"
 #include "packet.h"
 #include "role.h"
+#include "rtc.h"
 #include "bug.h"
 #include "uart.h"
 #include "channels.h"
@@ -34,11 +35,8 @@ struct report_packet g_report_packet;
 
 void uart_rx_process(void)
 {
-    int i;
-    for (i = 0; i < UART_TX_BUFF_SZ-1; ++i)
-        g_uart_tx_buff[i] = '0' + i % 10;
-    g_uart_tx_buff[UART_TX_BUFF_SZ-1] = '\r';
-    g_uart_tx_len = UART_TX_BUFF_SZ;
+    uart_printf("Hello!");
+    uart_printf(UART_EOL);
     uart_tx_flush();
 }
 
@@ -53,7 +51,7 @@ static void on_packet_received(void)
 int main(void)
 {
     unsigned role = role_get();
-
+    rtc_initialize(rtc_dummy_handler);
     uart_init();
  
     radio_configure(

@@ -6,6 +6,7 @@
 #include "app_util_platform.h"
 
 #include <stdio.h>
+#include <stdarg.h>
 
 #define LEN_PREFIX_LEN 6
 #define LEN_PREFIX_FMT "~%04x" UART_EOL
@@ -65,6 +66,8 @@ static void uart_event_handler(nrf_drv_uart_event_t * p_event, void * p_context)
         g_uart_tx_len_ += p_event->data.rxtx.bytes;
         if (g_uart_tx_len_ < (int)g_uart_tx_len) {
             uart_tx_next();
+        } else {
+            g_uart_tx_len = 0;
         }
     }
 }
@@ -75,5 +78,22 @@ void uart_init(void)
     ret_code_t err_code = nrf_drv_uart_init(&g_uart_cfg, uart_event_handler);
     APP_ERROR_CHECK(err_code);
     uart_rx_next();
+}
+
+void uart_printf(const char* fmt, ...)
+{
+    va_list v;
+    va_start(v, fmt);
+    unsigned avail = UART_TX_BUFF_SZ - g_uart_tx_len;
+    int r = vsnprintf((char*)g_uart_tx_buff + g_uart_tx_len, avail, fmt, v);
+    BUG_ON((unsigned)r >= avail);
+    if (r > 0) {
+        if (r < avail) {
+            g_uart_tx_len += r;
+        } else {
+            g_uart_tx_len += avail;
+        }
+    }
+    va_end(v);
 }
 

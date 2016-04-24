@@ -1005,6 +1005,9 @@
       <name>$PROJ_DIR$\..\..\..\common\role.c</name>
     </file>
     <file>
+      <name>$PROJ_DIR$\..\..\..\common\rtc.c</name>
+    </file>
+    <file>
       <name>$PROJ_DIR$\..\..\..\common\uart.c</name>
     </file>
   </group>
@@ -1021,6 +1024,9 @@
     <name>nRF_Drivers</name>
     <file>
       <name>$PROJ_DIR$\..\..\..\..\..\components\drivers_nrf\common\nrf_drv_common.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\..\..\..\..\components\drivers_nrf\rtc\nrf_drv_rtc.c</name>
     </file>
     <file>
       <name>$PROJ_DIR$\..\..\..\..\..\components\drivers_nrf\uart\nrf_drv_uart.c</name>
