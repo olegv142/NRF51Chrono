@@ -81,7 +81,7 @@ void stat_help(void)
         "                            0 - 24%02uMHz, 1 - 24%02uMHz"                                             UART_EOL
         "  current_timestamp       - the current receiver timestamp"                                           UART_EOL
                                                                                                                UART_EOL
-        "Stat line: epoch first_ts last_ts rep_total rep_received sn ts bt_pressed pressed_ts released_ts vcc" UART_EOL
+        "Stat line: epoch rep_total rep_received first_ts last_ts sn ts bt_pressed pressed_ts released_ts vcc" UART_EOL
         "  epoch                   - the number incremented every time the transmitting module restart"        UART_EOL
         "                            is detected, zero epoch means the corresponding module was not ever run"  UART_EOL
         "  rep_total rep_received  - the number of report messages in current epoch"                           UART_EOL
