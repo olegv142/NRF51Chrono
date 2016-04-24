@@ -54,10 +54,10 @@ void stat_dump(void)
         struct stat_entry const* s = &g_stat_entry[i];
         uart_printf("%u %u %u %u %u ", 
             s->epoch,
-            s->first_report_ts,
-            s->last_report_ts,
             s->reports_total,
-            s->reports_received
+            s->reports_received,
+            s->first_report_ts,
+            s->last_report_ts
         );
         struct report_packet const* r = &s->last_report;
         uart_printf("%u %u %u %u %u %u" UART_EOL, 
@@ -74,19 +74,27 @@ void stat_dump(void)
 
 void stat_help(void)
 {
-    uart_printf("Stat command (s) output consists of heading line followed by %u channel stat lines" UART_EOL, MAX_GR_ROLES);
-    uart_printf("Heading line: group current_timestamp" UART_EOL);
-    uart_printf("  the group identify radio frequency being used for communications:" UART_EOL);
-    uart_printf("    0 - 24%02uMHz, 1 - 24%02uMHz" UART_EOL, GR0_CH, GR1_CH);
-    uart_printf("Stat line: epoch first_ts last_ts rep_total rep_received sn ts bt_pressed pressed_ts released_ts vcc" UART_EOL);
-    uart_printf("  epoch is a number incremented every time the transmitting module restart is detected" UART_EOL);
-    uart_printf("  zero epoch means the corresponding module was never active" UART_EOL);
-    uart_printf("  first_ts and last_ts are timestamps of first and last report received in current epoch" UART_EOL);
-    uart_printf("  rep_total and rep_received are number of report messages in current epoch" UART_EOL);
-    uart_printf("  sn is the last report sequence number" UART_EOL);
-    uart_printf("  ts is the last report timestamp as reported by sender" UART_EOL);
-    uart_printf("  bt_pressed pressed_ts released_ts are button status and the timestamps of its first press / last release" UART_EOL);
-    uart_printf("  vcc is the transmitter power voltage measured in millivolts" UART_EOL);
-    uart_printf("  all timestamps are measured in 1/1024 sec units" UART_EOL);
+    uart_printf(
+        "Stat command (s) output consists of heading line followed by %u channel stat lines"                   UART_EOL
+        "Heading line: group current_timestamp"                                                                UART_EOL
+        "  group                   - the number identifying radio frequency being used for communications:"    UART_EOL
+        "                            0 - 24%02uMHz, 1 - 24%02uMHz"                                             UART_EOL
+        "  current_timestamp       - the current receiver timestamp"                                           UART_EOL
+                                                                                                               UART_EOL
+        "Stat line: epoch first_ts last_ts rep_total rep_received sn ts bt_pressed pressed_ts released_ts vcc" UART_EOL
+        "  epoch                   - the number incremented every time the transmitting module restart"        UART_EOL
+        "                            is detected, zero epoch means the corresponding module was not ever run"  UART_EOL
+        "  rep_total rep_received  - the number of report messages in current epoch"                           UART_EOL
+        "  first_ts last_ts        - timestamps of first and last report received in current epoch"            UART_EOL
+        "  sn                      - the last report sequence number"                                          UART_EOL
+        "  ts                      - the last report timestamp as reported by sender"                          UART_EOL
+        "  bt_pressed              - the button status: 0 - released, 1 - pressed"                             UART_EOL
+        "  pressed_ts released_ts  - the timestamps of the button first press / last release"                  UART_EOL
+        "  vcc                     - the transmitter power voltage measured in millivolts"                     UART_EOL
+                                                                                                               UART_EOL
+        "All timestamps are measured in 1/1024 sec units."                                                     UART_EOL
+        "The ts, pressed_ts, released_ts are measured by the transmitter clock."                               UART_EOL,
+        MAX_GR_ROLES, GR0_CH, GR1_CH
+    );
     uart_tx_flush();
 }
