@@ -8,6 +8,8 @@
 #define PACKET_BASE_ADDRESS_LENGTH 4
 #define WHITEIV 0
 
+static receiver_cb_t g_receive_cb;
+
 void radio_configure(void* packet, unsigned sz, unsigned ch)
 {
     // Radio config
@@ -79,14 +81,19 @@ void send_packet(void)
     }
 }
 
-void receiver_on(void)
+void receiver_on(receiver_cb_t cb)
 {
     int hf_clk_active = hf_osc_active();
     if (!hf_clk_active)
     {
         hf_osc_start();
     }
-
+    if (cb)
+    {
+        g_receive_cb = cb;
+        NVIC_EnableIRQ(RADIO_IRQn);
+        NRF_RADIO->INTENSET = RADIO_INTENSET_END_Set << RADIO_INTENSET_END_Pos;
+    }
     // Enable radio and wait for ready
     NRF_RADIO->EVENTS_READY = 0U;
     NRF_RADIO->TASKS_RXEN = 1U;
@@ -106,3 +113,8 @@ void receive_start(void)
     NRF_RADIO->TASKS_START = 1U;
 }
 
+void RADIO_IRQHandler(void)
+{
+    BUG_ON(!g_receive_cb);
+    g_receive_cb();
+}

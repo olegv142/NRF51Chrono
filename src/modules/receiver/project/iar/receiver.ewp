@@ -1008,6 +1008,9 @@
       <name>$PROJ_DIR$\..\..\..\common\rtc.c</name>
     </file>
     <file>
+      <name>$PROJ_DIR$\..\..\..\common\stat.c</name>
+    </file>
+    <file>
       <name>$PROJ_DIR$\..\..\..\common\uart.c</name>
     </file>
   </group>

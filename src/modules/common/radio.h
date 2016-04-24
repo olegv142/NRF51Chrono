@@ -9,8 +9,10 @@ void radio_configure(void* packet, unsigned sz, unsigned ch);
 // Send packet
 void send_packet(void);
 
+typedef void (*receiver_cb_t)(void);
+
 // Turn on receiver
-void receiver_on(void);
+void receiver_on(receiver_cb_t cb);
 
 // Start receiving
 void receive_start(void);

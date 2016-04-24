@@ -24,6 +24,7 @@
 #include "radio.h"
 #include "packet.h"
 #include "role.h"
+#include "stat.h"
 #include "rtc.h"
 #include "bug.h"
 #include "uart.h"
@@ -33,16 +34,23 @@
 // Report packet
 struct report_packet g_report_packet;
 
+int g_stat_request;
+
 void uart_rx_process(void)
 {
-    uart_printf("Hello!");
-    uart_printf(UART_EOL);
-    uart_tx_flush();
+    if (g_uart_rx_buff[0] == 's') {
+        g_stat_request = 1;
+    } else {
+        uart_printf("Hello!" UART_EOL);
+        uart_tx_flush();
+    }
 }
 
 static void on_packet_received(void)
 {
-    // TBD
+    if (receive_crc_ok())
+        stat_update(&g_report_packet);
+    receive_start();
 }
 
 /**
@@ -51,26 +59,25 @@ static void on_packet_received(void)
 int main(void)
 {
     unsigned role = role_get();
+    unsigned group = role >> ROLE_GR_SHIFT;
     rtc_initialize(rtc_dummy_handler);
     uart_init();
+    stat_init(group);
  
     radio_configure(
             &g_report_packet, sizeof(g_report_packet),
-            role & ROLE_GR_SELECT ? GR1_CH : GR0_CH
+            group ? GR1_CH : GR0_CH
         );
 
-    receiver_on();
+    receiver_on(on_packet_received);
+    receive_start();
 
     while (true)
     {
-        receive_start();
-        while (!receive_done())
-        {
-            // wait
-        }
-        if (receive_crc_ok())
-        {
-            on_packet_received();
+        __WFI();
+        if (g_stat_request) {
+            g_stat_request = 0;
+            stat_dump();
         }
     }
 }
