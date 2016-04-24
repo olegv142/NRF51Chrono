@@ -30,6 +30,7 @@
 #include "boards.h"
 #include "app_error.h"
 #include "bug.h"
+#include "rtc.h"
 #include "role.h"
 #include "radio.h"
 #include "packet.h"
@@ -78,9 +79,6 @@ unsigned g_reporting_ticks[MAX_GR_ROLES] = {
     191, 193, 197, 199, 211, 223, 227, 229 // prime numbers
 };
 
-// Declaring an instance of nrf_drv_rtc for RTC0.
-const nrf_drv_rtc_t rtc = NRF_DRV_RTC_INSTANCE(0);
-
 #define LED_PWR_BIT (1<<LED_PWR)
 #define DEBOUNCE_PERIOD 2
 #define DEBOUNCE_TICKS 256
@@ -109,11 +107,6 @@ static inline int is_btn_pressed(void)
     return !(NRF_GPIO->IN & (1<<BUTTON_USER));
 }
 
-static unsigned current_ts(void)
-{
-    return nrf_drv_rtc_counter_get(&rtc);
-}
-
 static inline unsigned reporting_ticks(void)
 {
     return g_reporting_ticks[g_role];
@@ -121,13 +114,13 @@ static inline unsigned reporting_ticks(void)
 
 static inline void rtc_cc_schedule(unsigned chan, unsigned time)
 {
-    ret_code_t err_code = nrf_drv_rtc_cc_set(&rtc, chan, current_ts() + time, true);
+    ret_code_t err_code = nrf_drv_rtc_cc_set(&g_rtc, chan, rtc_current() + time, true);
     APP_ERROR_CHECK(err_code);
 }
 
 static inline void rtc_cc_disable(unsigned chan)
 {
-    ret_code_t err_code = nrf_drv_rtc_cc_disable(&rtc, chan);
+    ret_code_t err_code = nrf_drv_rtc_cc_disable(&g_rtc, chan);
     APP_ERROR_CHECK(err_code);
 }
 
@@ -147,7 +140,7 @@ static inline void periodic_task(void)
 static void btn_pressed_cb(nrf_drv_gpiote_pin_t pin, nrf_gpiote_polarity_t action)
 {
     if (!g_btn_pressed) {
-        g_btn_pressed_ts = current_ts();
+        g_btn_pressed_ts = rtc_current();
         led_on();
     }
     g_btn_pressed_ = 1;
@@ -160,7 +153,7 @@ static void btn_debounce(void)
     if (!is_btn_pressed())
     {
         if (g_btn_pressed_) {
-            g_btn_released_ts = current_ts();
+            g_btn_released_ts = rtc_current();
         }
         g_btn_pressed_ = 0;
         if (g_btn_pressed <= DEBOUNCE_PERIOD) {
@@ -197,23 +190,6 @@ static void rtc_handler(nrf_drv_rtc_int_type_t int_type)
     }
 }
 
-/** @brief Function initialization and configuration of RTC driver instance.
- */
-static void rtc_config(void)
-{
-    uint32_t err_code;
-
-    //Initialize RTC instance
-    err_code = nrf_drv_rtc_init(&rtc, NULL, rtc_handler);
-    APP_ERROR_CHECK(err_code);
-
-    //Start 32768Hz crystal clock
-    lf_osc_start();
-
-    //Power on RTC instance
-    nrf_drv_rtc_enable(&rtc);
-}
-
 /**
  * @brief ADC interrupt handler.
  */
@@ -228,7 +204,7 @@ void ADC_IRQHandler(void)
 /**
  * @brief ADC initialization.
  */
-static void adc_config(void)
+static void adc_initialize(void)
 {
     const nrf_adc_config_t nrf_adc_config = { NRF_ADC_CONFIG_RES_10BIT,
         NRF_ADC_CONFIG_SCALING_SUPPLY_ONE_THIRD,
@@ -241,7 +217,7 @@ static void adc_config(void)
     NVIC_EnableIRQ(ADC_IRQn);
 }
 
-static void btn_config(void)
+static void btn_initialize(void)
 {
     nrf_drv_gpiote_in_config_t cfg = {
         .is_watcher = false,
@@ -265,9 +241,9 @@ int main(void)
     g_role = role & ROLE_MASK;
     BUG_ON(g_role >= MAX_GR_ROLES);
     nrf_gpio_cfg_output(LED_PWR);
-    btn_config();
-    adc_config();
-    rtc_config();
+    btn_initialize();
+    adc_initialize();
+    rtc_initialize(rtc_handler);
 
     radio_configure(
         &g_report_packet, sizeof(g_report_packet),
@@ -282,7 +258,7 @@ int main(void)
         if (g_report_req) {
             g_report_req = 0;
             g_report_packet.sn = ++g_report_sn;
-            g_report_packet.ts = current_ts();
+            g_report_packet.ts = rtc_current();
             g_report_packet.role = g_role;
             g_report_packet.vcc_mv = g_vcc_mv;
             g_report_packet.bt_pressed = (g_btn_pressed != 0);

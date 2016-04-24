@@ -1002,6 +1002,9 @@
     <file>
       <name>$PROJ_DIR$\..\..\..\common\role.c</name>
     </file>
+    <file>
+      <name>$PROJ_DIR$\..\..\..\common\rtc.c</name>
+    </file>
   </group>
   <group>
     <name>Device</name>
