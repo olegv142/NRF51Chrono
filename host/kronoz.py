@@ -1,4 +1,4 @@
-import os, sys, PyQt4
+import os, sys, time, subprocess, traceback, PyQt4
 from PyQt4 import QtCore, QtGui, uic
 from PyQt4.QtGui import QApplication, QWidget, QStatusBar
 from PyQt4.QtCore import QTimer
@@ -15,6 +15,38 @@ lane_Widget, lane_BaseClass = uic.loadUiType(lane_descr_path)
 
 ui_style = 'plastique'
 max_lanes = 4
+
+home_folder = os.environ['USERPROFILE'] + os.sep + 'kronoz'
+log_filename = home_folder + os.sep + 'kronoz.log'
+res_filename = home_folder + os.sep + 'kronoz.txt'
+
+log_file = None
+res_file = None
+
+gui = None
+
+def format_timestamp():
+	t = time.time()
+	return time.strftime('%d-%m-%y %H:%M:%S', time.localtime(t)) + ('.%03d ' % int(1000*(t%1)))
+
+def format_msg(pref, fmt, args):
+	if args:
+		return pref + (fmt % args)
+	else:
+		return pref + fmt
+
+def err(fmt, args = None):
+	msg = format_msg('Error: ', fmt, args)
+	if gui is not None:
+		gui.show_status(msg, QtCore.Qt.red)
+	print(format_timestamp() + msg, file=log_file)
+
+def errx(fmt, args = None):
+	msg = format_msg('Error: ', fmt, args)
+	if gui is not None:
+		gui.show_status(msg, QtCore.Qt.red)
+	print(format_timestamp() + msg, file=log_file)
+	traceback.print_exc(file=log_file)
 
 def setWidgetBkgColor(w, c):
 	p = w.palette()
@@ -47,18 +79,57 @@ class GUI(QWidget, gui_MainWindow):
 		self.setupUi(self)
 		self.sbar = QStatusBar(self)
 		self.vlayout.addWidget(self.sbar)
-		self.sbar.showMessage('ready')
 		self.lanes = [Lane(i, self) for i in range(nLanes)]
 		for l in self.lanes:
 			self.laneList.addWidget(l)
 		self.timer = QTimer()
 		self.timer.timeout.connect(self.poll_timer)
 		self.timer.start(self.poll_interval)
+		self.btOpen.clicked.connect(self.open_res_file)
+		self.btBrowse.clicked.connect(self.browse_res_folder)
+		self.show_status('ready')
+
+	def show_status(self, msg, color=QtCore.Qt.black):
+		self.sbar.showMessage(msg)
+		setWidgetFogColor(self.sbar, color)
+
+	def open_res_file(self):
+		try:
+			subprocess.Popen([u'notepad.exe', res_filename])
+		except:
+			errx('failed to open %s', res_filename)
+
+	def browse_res_folder(self):
+		try:
+			os.startfile(home_folder, 'explore')
+		except:
+			errx('failed to browse %s', home_folder)
 
 	def poll_timer(self):
-		print('.')
+		pass
+
+def prepare_env():
+	global log_file, res_file
+	try:
+		os.mkdir(home_folder)
+	except:
+		pass
+	try:
+		log_file = open(log_filename, 'w')
+	except:
+		print('Failed to open log file ' + log_filename, file=sys.stderr)
+		traceback.print_exc(file=sys.stderr)
+		return -1
+	try:
+		res_file = open(res_filename, 'a')
+	except:
+		print('Failed to open results file ' + res_filename, file=sys.stderr)
+		traceback.print_exc(file=sys.stderr)
+		return -1
+	return 0
 
 def main():
+	global gui
 	args_ = []
 	nLanes = 4
 	for arg in sys.argv:
@@ -66,7 +137,8 @@ def main():
 			nLanes = int(arg[2:])
 		else:
 			args_.append(arg)
-
+	if prepare_env():
+		return -1
 	app = QApplication(args_)
 	app.setStyle(ui_style)
 	gui = GUI(nLanes)
