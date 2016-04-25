@@ -46,20 +46,20 @@ def format_msg(pref, fmt, args):
 def err(fmt, args = None):
 	msg = format_msg('Error: ', fmt, args)
 	if gui is not None:
-		gui.show_status(msg, QtCore.Qt.red)
+		gui.show_message(msg, QtCore.Qt.red)
 	print(format_timestamp() + msg, file=log_file)
 
 def errx(fmt, args = None):
 	msg = format_msg('Error: ', fmt, args)
 	if gui is not None:
-		gui.show_status(msg, QtCore.Qt.red)
+		gui.show_message(msg, QtCore.Qt.red)
 	print(format_timestamp() + msg, file=log_file)
 	traceback.print_exc(file=log_file)
 
 def warn(fmt, args = None):
 	msg = format_msg('Warning: ', fmt, args)
 	if gui is not None:
-		gui.show_status(msg, QtCore.Qt.magenta)
+		gui.show_message(msg, QtCore.Qt.magenta)
 	print(format_timestamp() + msg, file=log_file)
 
 def dbg(pref, fmt, args = None):
@@ -78,19 +78,21 @@ def setWidgetFogColor(w, c):
 
 class Lane:
 	# states
-	Inactive  = 0
-	Ready     = 1
-	Starting  = 2
-	Running   = 3
-	Completed = 4
-	Failed    = 5
+	Disconnected = 0
+	Inactive     = 1
+	Ready        = 2
+	Starting     = 3
+	Running      = 4
+	Completed    = 5
+	Failed       = 6
 	state_names = {
-		Inactive  : 'Inactive',
-		Ready     : 'Ready',
-		Starting  : 'Starting',
-		Running   : 'Running',
-		Completed : 'Completed',
-		Failed    : 'Failed'
+		Disconnected : 'Disconnected',
+		Inactive     : 'Inactive',
+		Ready        : 'Ready',
+		Starting     : 'Starting',
+		Running      : 'Running',
+		Completed    : 'Completed',
+		Failed       : 'Failed'
 	}
 
 	def __init__(self, i):
@@ -102,7 +104,7 @@ class Lane:
 		dbg('[%d] ' % self.i, '%s -> %s', (Lane.state_names[self.state], Lane.state_names[st]))
 		self.state = st
 
-	def update(self, ts, stat):
+	def update(self, ts, start_stat, finish_stat):
 		pass
 
 	def update_result(self, res):
@@ -122,19 +124,23 @@ class Lane:
 
 class Kronoz:
 	# states
-	Idle      = 0
-	Running   = 1
-	Completed = 2
-	Failed    = 3
-	state_names = {
-		Idle      : 'Idle',
-		Running   : 'Running',
-		Completed : 'Completed',
-		Failed    : 'Failed'
+	Disconnected = 0
+	Connecting   = 1
+	Idle         = 2
+	Running      = 3
+	Completed    = 4
+	Failed       = 5
+	state_names  = {
+		Disconnected : 'Disconnected',
+		Connecting   : 'Connecting',
+		Idle         : 'Idle',
+		Running      : 'Running',
+		Completed    : 'Completed',
+		Failed       : 'Failed'
 	}
 
 	def __init__(self):
-		self.state = Kronoz.Idle
+		self.state = Kronoz.Disconnected
 
 	def set_state(self, st):
 		dbg('[K] ', '%s -> %s', (Kronoz.state_names[self.state], Kronoz.state_names[st]))
@@ -171,14 +177,16 @@ class Kronoz:
 	def update(self, ts, stats):
 		if self.state == Kronoz.Failed:
 			return
+		if self.state == Kronoz.Connecting:
+			self.set_state(Kronoz.Idle)
 		lanes = self.get_lanes()
 		running = False
-		for i, stat in enumerate(stats):
-			if i < len(lanes):
-				l = lanes[i]
-				l.update(ts, stat)
-				if l.busy():
-					running = True
+		n = min(len(stats) / 2, len(lanes))
+		for i in range(n):
+			l = lanes[i]
+			l.update(ts, stats[2*i], stats[2*i+1])
+			if l.busy():
+				running = True
 		if self.state == Kronoz.Running and not running:
 			self.set_state(Kronoz.Completed)
 
@@ -202,8 +210,6 @@ class GUI(Kronoz, QWidget, gui_MainWindow):
 		QWidget.__init__(self)
 		gui_MainWindow.__init__(self)
 		self.setupUi(self)
-		self.sbar = QStatusBar(self)
-		self.vlayout.addWidget(self.sbar)
 		self.lanes = [GUILane(i, self) for i in range(nLanes)]
 		for l in self.lanes:
 			self.laneList.addWidget(l)
@@ -213,13 +219,25 @@ class GUI(Kronoz, QWidget, gui_MainWindow):
 		self.btSave.clicked.connect(self.save_results)
 		self.btOpen.clicked.connect(self.open_res_file)
 		self.btBrowse.clicked.connect(self.browse_res_folder)
+		self.set_state(Kronoz.Connecting)
 
 	def get_lanes(self):
 		return self.lanes
 
+	def set_state(self, st):
+		Kronoz.set_state(self, st)
+		self.show_status(Kronoz.state_names[st], QtCore.Qt.red if st == Kronoz.Failed else QtCore.Qt.black)
+	
+	@staticmethod
+	def sbar_show_message(sb, msg, color):
+		sb.showMessage(msg)
+		setWidgetFogColor(sb, color)
+
 	def show_status(self, msg, color=QtCore.Qt.black):
-		self.sbar.showMessage(msg)
-		setWidgetFogColor(self.sbar, color)
+		GUI.sbar_show_message(self.sbar0, msg, color)
+
+	def show_message(self, msg, color=QtCore.Qt.black):
+		GUI.sbar_show_message(self.sbar1, msg, color)
 
 	def save_results(self):
 		t = format_date_time()
