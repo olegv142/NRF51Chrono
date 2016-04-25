@@ -73,7 +73,7 @@
         <item>
          <widget class="QPushButton" name="btSave">
           <property name="text">
-           <string>Save</string>
+           <string>Save / New</string>
           </property>
          </widget>
         </item>
