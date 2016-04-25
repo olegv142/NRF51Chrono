@@ -2,6 +2,7 @@ import os
 import sys
 import PyQt4
 from PyQt4 import QtCore, QtGui, uic
+from PyQt4.QtGui import QStatusBar
 
 application_path = os.path.split(sys.argv[0])[0]
 
@@ -41,6 +42,9 @@ class GUI(QtGui.QWidget, gui_MainWindow):
 		QtGui.QWidget .__init__(self)
 		gui_MainWindow.__init__(self)
 		self.setupUi(self)
+		self.sbar = QStatusBar(self)
+		self.vlayout.addWidget(self.sbar)
+		self.sbar.showMessage("ready")
 
 app = QtGui.QApplication(sys.argv)
 app.setStyle("plastique")
