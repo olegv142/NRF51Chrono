@@ -17,7 +17,12 @@ struct stat_entry {
     struct report_packet last_report;
 };
 
-static struct stat_entry g_stat_entry[MAX_GR_ROLES];
+struct stat_buffer {
+    struct stat_entry e[2];
+    unsigned          ei;
+};
+
+static struct stat_buffer g_stat_buff[MAX_GR_ROLES];
 static unsigned g_stat_group;
 
 void stat_init(unsigned group)
@@ -30,18 +35,23 @@ void stat_update(struct report_packet const* r)
 {
     unsigned ts = rtc_current();
     BUG_ON(r->role >= MAX_GR_ROLES);
-    struct stat_entry* s = &g_stat_entry[r->role];
-    int new_epoch = !s->epoch || s->last_report.sn >= r->sn;
+    struct stat_buffer* b = &g_stat_buff[r->role];
+    unsigned next_i = 1 - b->ei;
+    struct stat_entry *last_s = &b->e[b->ei], *s = &b->e[next_i];
+    int new_epoch = !last_s->epoch || last_s->last_report.sn >= r->sn;
     if (new_epoch) {
-        ++s->epoch;
-        s->first_report_ts = s->last_report_ts = ts;
-        s->reports_total = s->reports_received = 1;
+        s->epoch = last_s->epoch + 1;
+        s->first_report_ts = s->last_report_ts   = ts;
+        s->reports_total   = s->reports_received = 1;
     } else {
-        s->last_report_ts = ts;
-        s->reports_total += r->sn - s->last_report.sn;
-        s->reports_received += 1;
+        s->epoch = last_s->epoch;
+        s->first_report_ts  = last_s->first_report_ts;
+        s->last_report_ts   = ts;
+        s->reports_total    = last_s->reports_total + (r->sn - last_s->last_report.sn);
+        s->reports_received = last_s->reports_received + 1;
     }
     s->last_report = *r;
+    b->ei = next_i;
 }
 
 // Print stat to UART
@@ -51,7 +61,8 @@ void stat_dump(void)
     uart_printf("%u %u" UART_EOL, g_stat_group, ts);
     for (i = 0; i < MAX_GR_ROLES; ++i)
     {
-        struct stat_entry const* s = &g_stat_entry[i];
+        struct stat_buffer const* b = &g_stat_buff[i];
+        struct stat_entry const* s = &b->e[b->ei];
         uart_printf("%u %u %u %u %u ", 
             s->epoch,
             s->reports_total,
