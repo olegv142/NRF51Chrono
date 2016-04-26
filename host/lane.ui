@@ -93,6 +93,12 @@
        <layout class="QVBoxLayout" name="verticalLayout_2">
         <item>
          <widget class="QLabel" name="lTime">
+          <property name="minimumSize">
+           <size>
+            <width>142</width>
+            <height>0</height>
+           </size>
+          </property>
           <property name="palette">
            <palette>
             <active>
@@ -137,6 +143,9 @@
           </property>
           <property name="text">
            <string>--:--.---</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignCenter</set>
           </property>
          </widget>
         </item>
