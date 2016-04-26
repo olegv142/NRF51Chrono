@@ -115,14 +115,14 @@ def setWidgetFogColor(w, c):
 class Lane:
 	# states
 	Disconnected = 0
-	Inactive     = 1
+	Idle         = 1
 	Starting     = 3
 	Running      = 4
 	Completed    = 5
 	Failed       = 6
 	state_names = {
 		Disconnected : 'Disconnected',
-		Inactive     : 'Inactive',
+		Idle         : 'Idle',
 		Starting     : 'Starting',
 		Running      : 'Running',
 		Completed    : 'Completed',
@@ -140,6 +140,7 @@ class Lane:
 		self.finish_status = None
 		self.start_epoch   = None
 		self.start_ts      = None
+		self.at_start      = False
 
 	def set_state(self, st):
 		dbg('[%d] ' % self.i, '%s -> %s', (Lane.state_names[self.state], Lane.state_names[st]))
@@ -159,20 +160,25 @@ class Lane:
 	@staticmethod
 	def get_pressed_ts(stat):
 		assert stat.pressed_ts
-		return start.last_ts - (stat.rep_ts - stat.pressed_ts)
+		return stat.last_ts - (stat.rep_ts - stat.pressed_ts)
 
 	@staticmethod
 	def get_released_ts(stat):
 		assert stat.released_ts
-		return start.last_ts - (stat.rep_ts - stat.released_ts)
+		return stat.last_ts - (stat.rep_ts - stat.released_ts)
 
 	def update(self, ts, start_stat, finish_stat):
 		self.start_stat   = start_stat
 		self.finish_stat  = finish_stat
 		self.set_gates_status(Lane.gate_status(ts, start_stat), Lane.gate_status(ts, finish_stat))
 		if self.state == Lane.Disconnected:
-			self.set_state(Lane.Inactive)
+			self.set_state(Lane.Idle)
 			self.update_result(0.)
+			return
+
+		if self.state == Lane.Idle:
+			if start_stat.bt_pressed:
+				self.at_start = True
 			return
 
 		if self.state == Lane.Starting:
@@ -186,7 +192,7 @@ class Lane:
 
 		if self.state == Lane.Running:
 			if finish_stat.pressed_ts:
-				finish_ts = get_pressed_ts(finish_stat)
+				finish_ts = Lane.get_pressed_ts(finish_stat)
 				if finish_ts > self.start_ts:
 					self.update_result(Lane.mils2sec(finish_ts - self.start_ts))
 					self.set_state(Lane.Completed)
@@ -205,7 +211,7 @@ class Lane:
 		return self.start_status.online and self.finish_status.online
 
 	def start(self):
-		if self.state == Lane.Inactive and self.is_online():
+		if self.state == Lane.Idle and self.at_start and self.is_online():
 			self.start_epoch = self.start_stat.epoch
 			if self.start_stat.bt_pressed:
 				self.set_state(Lane.Starting)
@@ -226,7 +232,8 @@ class Lane:
 	def reset(self):
 		if self.state == Lane.Disconnected:
 			return
-		self.set_state(Lane.Inactive)
+		self.set_state(Lane.Idle)
+		self.at_start = False
 		self.update_result(0.)
 
 class Kronoz:
@@ -312,12 +319,12 @@ class GUILane(Lane, QWidget, lane_Widget):
 
 	def set_state(self, st):
 		Lane.set_state(self, st)
-		if st == Lane.Inactive:
+		if st == Lane.Idle:
 			setWidgetFogColor(self.lTime, QtCore.Qt.black)
 		elif st == Lane.Failed:
 			setWidgetFogColor(self.lTime, QtCore.Qt.red)
 		elif st == Lane.Completed:
-			setWidgetFogColor(self.lTime, QtCore.Qt.green)
+			setWidgetFogColor(self.lTime, QtCore.Qt.darkGreen)
 		else:
 			setWidgetFogColor(self.lTime, QtCore.Qt.blue)
 
@@ -407,8 +414,10 @@ class GUI(Kronoz, QWidget, gui_MainWindow):
 	def save_results(self):
 		t = format_date_time()
 		for l in self.lanes:
-			print(t + '\t' + str(l.i) + '\t' + l.leName.text() + '\t' + str(l.result) + res_eol, file=res_file)
+			if l.state == Lane.Completed:
+				print(t + '\t' + str(l.i) + '\t' + l.leName.text() + '\t' + str(l.result) + res_eol, file=res_file)
 		res_file.flush()
+		self.reset()
 
 	def open_res_file(self):
 		try:
