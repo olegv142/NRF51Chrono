@@ -415,7 +415,7 @@ class GUI(Kronoz, QWidget, gui_MainWindow):
 		t = format_date_time()
 		for l in self.lanes:
 			if l.state == Lane.Completed:
-				print(t + '\t' + str(l.i) + '\t' + l.leName.text() + '\t' + str(l.result) + res_eol, file=res_file)
+				print(('%s\t%u\t%s\t%.3f' + res_eol) % (t, l.i, l.leName.text(), l.result), file=res_file)
 		res_file.flush()
 		self.reset()
 
