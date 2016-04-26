@@ -1,4 +1,5 @@
-import os, sys, time, subprocess, traceback, codecs, PyQt4
+import os, sys, time, subprocess, traceback, serial, codecs, PyQt4
+from serial.tools.list_ports import comports
 from collections import namedtuple
 from PyQt4 import QtCore, QtGui, uic
 from PyQt4.QtGui import QApplication, QWidget, QStatusBar
@@ -15,7 +16,7 @@ lane_descr_path = os.path.join(application_path, lane_descr)
 lane_Widget, lane_BaseClass = uic.loadUiType(lane_descr_path)
 
 ui_style = 'plastique'
-max_lanes = 4
+gui = None
 
 home_folder = os.environ['USERPROFILE'] + os.sep + 'kronoz'
 log_filename = home_folder + os.sep + 'kronoz.log'
@@ -23,10 +24,8 @@ res_filename = home_folder + os.sep + 'kronoz.txt'
 res_enc = 'utf-8-sig'
 res_eol = '\r\n'
 
-log_file = None
+log_file = sys.stderr
 res_file = None
-
-gui = None
 
 StatSet    = namedtuple('StatSet',    ('group', 'ts', 'gates'))
 GateStat   = namedtuple('GateStat',   ('epoch', 'rep_total', 'rep_received', 'first_ts', 'last_ts', 'rep_sn', 'rep_ts', 'bt_pressed', 'pressed_ts', 'released_ts', 'vcc'))
@@ -45,7 +44,7 @@ def format_timestamp():
 	return format_date_time_(t) + ('.%03d ' % int(1000*(t%1)))
 
 def format_msg(pref, fmt, args):
-	if args:
+	if args is not None:
 		return pref + (fmt % args)
 	else:
 		return pref + fmt
@@ -80,6 +79,26 @@ def dbg(pref, fmt, args = None):
 	print(format_timestamp() + msg, file=log_file)
 
 #### Helper routines ####
+
+def setup_env():
+	global log_file, res_file
+	try:
+		os.mkdir(home_folder)
+	except:
+		pass
+	try:
+		log_file = open(log_filename, 'w')
+	except:
+		print('Failed to open log file ' + log_filename, file=sys.stderr)
+		traceback.print_exc(file=sys.stderr)
+		return -1
+	try:
+		res_file = codecs.open(res_filename, 'a', res_enc)
+	except:
+		print('Failed to open results file ' + res_filename, file=sys.stderr)
+		traceback.print_exc(file=sys.stderr)
+		return -1
+	return 0
 
 def setWidgetBkgColor(w, c):
 	p = w.palette()
@@ -131,7 +150,7 @@ class Lane:
 		if not stat.epoch:
 			return GateStatus(pkt_receiption = None, vcc = None, online = False, pressed = False)
 		else:
-			return GateStatus(pkt_receiption = float(stat.rep_received) / stat.rep_total, vcc = stat.vcc / 1000., online = (stat.last_ts + offline_tout > ts), pressed = stat.bt_pressed)
+			return GateStatus(pkt_receiption = float(stat.rep_received) / stat.rep_total, vcc = stat.vcc / 1000., online = (stat.last_ts + Lane.offline_tout > ts), pressed = stat.bt_pressed)
 
 	@staticmethod
 	def mils2sec(mils):
@@ -271,7 +290,7 @@ class Kronoz:
 		lanes = self.get_lanes()
 		running = False
 		stats = stat_set.gates
-		n = min(len(stats) / 2, len(lanes))
+		n = min(len(stats) // 2, len(lanes))
 		for i in range(n):
 			l = lanes[i]
 			l.update(stat_set.ts, stats[2*i], stats[2*i+1])
@@ -294,13 +313,13 @@ class GUILane(Lane, QWidget, lane_Widget):
 	def set_state(self, st):
 		Lane.set_state(self, st)
 		if st == Lane.Inactive:
-			setWidgetFogColor(self.lTime, QtCore.Qt.Black)
+			setWidgetFogColor(self.lTime, QtCore.Qt.black)
 		elif st == Lane.Failed:
-			setWidgetFogColor(self.lTime, QtCore.Qt.Red)
+			setWidgetFogColor(self.lTime, QtCore.Qt.red)
 		elif st == Lane.Completed:
-			setWidgetFogColor(self.lTime, QtCore.Qt.Green)
+			setWidgetFogColor(self.lTime, QtCore.Qt.green)
 		else:
-			setWidgetFogColor(self.lTime, QtCore.Qt.Blue)
+			setWidgetFogColor(self.lTime, QtCore.Qt.blue)
 
 	@staticmethod
 	def format_time(t):
@@ -309,28 +328,31 @@ class GUILane(Lane, QWidget, lane_Widget):
 
 	def update_result(self, res):
 		Lane.update_result(self, res)
-		self.lTime.setText(GUILane.format_time(t))
+		self.lTime.setText(GUILane.format_time(res))
 
 	@staticmethod
 	def get_alert_color(v, v0, v1):
 		if v < v0:
-			return QtCore.Qt.Red
+			return QtCore.Qt.red
 		elif v < v1:
-			return QtCore.Qt.Magenta
+			return QtCore.Qt.magenta
 		else:
-			return QtCore.Qt.Black
+			return QtCore.Qt.black
 
 	@staticmethod
 	def show_gate_status(s, frame, pkt_stat, vcc, status):
-		pkt_stat.setText('%u%%' % (100 * s.pkt_receiption))
-		vcc     .setText('%.1fV' % s.vcc)
-		status  .setText('online' if s.online else 'offline')
-		setWidgetFogColor(pkt_stat, GUILane.get_alert_color(s.pkt_receiption, .1,  .5))
-		setWidgetFogColor(vcc,      GUILane.get_alert_color(s.vcc,           2.2, 2.7))
+		if s.pkt_receiption is not None:
+			pkt_stat.setText('%u%%' % (100 * s.pkt_receiption))
+			setWidgetFogColor(pkt_stat, GUILane.get_alert_color(s.pkt_receiption, .1, .5))
+		if s.vcc is not None:
+			vcc.setText('%.1fV' % s.vcc)
+			setWidgetFogColor(vcc, GUILane.get_alert_color(s.vcc, 2.2, 2.7))
 		if s.online:
-			setWidgetBkgColor(frame, QtCore.Qt.Green if s.pressed else QtCore.Qt.Blue)
-		else:
-			setWidgetBkgColor(frame, QtCore.Qt.Gray)
+			status.setText('online')
+			setWidgetBkgColor(frame, QtCore.Qt.green if s.pressed else QtCore.Qt.cyan)
+		else:				
+			status.setText('offline')
+			setWidgetBkgColor(frame, QtCore.Qt.lightGray)
 
 	def set_gates_status(self, start, finish):
 		Lane.set_gates_status(self, start, finish)
@@ -340,7 +362,7 @@ class GUILane(Lane, QWidget, lane_Widget):
 
 class GUI(Kronoz, QWidget, gui_MainWindow):
 	poll_interval = 200
-	def __init__(self, nLanes = max_lanes):
+	def __init__(self, com, nLanes = 4):
 		Kronoz.__init__(self)
 		QWidget.__init__(self)
 		gui_MainWindow.__init__(self)
@@ -348,6 +370,7 @@ class GUI(Kronoz, QWidget, gui_MainWindow):
 		self.lanes = [GUILane(i) for i in range(nLanes)]
 		for l in self.lanes:
 			self.laneList.addWidget(l)
+		self.com = com
 		self.timer = QTimer()
 		self.timer.timeout.connect(self.poll_timer)
 		self.timer.start(self.poll_interval)
@@ -400,27 +423,63 @@ class GUI(Kronoz, QWidget, gui_MainWindow):
 			errx('failed to browse %s', home_folder)
 
 	def poll_timer(self):
-		pass
+		if self.state == Kronoz.Failed:
+			return
+		s = read_stat(self.com)
+		if s is None:
+			self.set_state(Kronoz.Failed)
+		else:
+			self.update(s)
 
-def setup_env():
-	global log_file, res_file
+#### Controller interface ####
+
+valid_controllers   = ['USB VID:PID=0403:6001']
+controller_baudrate = 115200
+controller_timeout  = 1
+controller_channels = 8
+
+def find_port():
+	for port, info, descr in comports():
+		for c in valid_controllers:
+			if descr.startswith(c):
+				return port
+	return None
+
+def open_port(port):
 	try:
-		os.mkdir(home_folder)
+		return serial.Serial(port, timeout = controller_timeout, baudrate = controller_baudrate)
 	except:
-		pass
+		errx('Failed to open', port)
+		traceback.print_exc(file=sys.stderr)		
+		return None
+
+def read_stat(com):
 	try:
-		log_file = open(log_filename, 'w')
+		com.write(b's\r')
+		prefix = com.read(6)
+		if len(prefix) != 6 or prefix[0:1] != b'~':
+			raise RuntimeError('invalid prefix: %s' % prefix)
+		sz = int(prefix[1:5], base=16)
+		resp = com.read(sz)
+		if len(resp) != sz:
+			raise RuntimeError('invalid response: %s' % resp)
+		f = resp.split()
+		ch_flds = 11
+		if len(f) != 2 + controller_channels * ch_flds:
+			raise RuntimeError('invalid response: %s' % resp)
+		stat = StatSet(group = int(f[0]), ts = int(f[1]), gates=[])
+		for ch in range(controller_channels):
+			ch_f = f[2+ch*ch_flds:2+(ch+1)*ch_flds]
+			stat.gates.append(GateStat(
+				epoch=int(ch_f[0]), rep_total=int(ch_f[1]), rep_received=int(ch_f[2]), first_ts=int(ch_f[3]), last_ts=int(ch_f[4]),
+				rep_sn=int(ch_f[5]), rep_ts=int(ch_f[6]), bt_pressed=int(ch_f[7]), pressed_ts=int(ch_f[8]), released_ts=int(ch_f[9]), vcc=int(ch_f[10])
+			))
+		return stat
 	except:
-		print('Failed to open log file ' + log_filename, file=sys.stderr)
-		traceback.print_exc(file=sys.stderr)
-		return -1
-	try:
-		res_file = codecs.open(res_filename, 'a', res_enc)
-	except:
-		print('Failed to open results file ' + res_filename, file=sys.stderr)
-		traceback.print_exc(file=sys.stderr)
-		return -1
-	return 0
+		errx('Kronoz receiver failure')
+		return None
+
+#### Main function ####
 
 def main():
 	global gui
@@ -431,11 +490,19 @@ def main():
 			nLanes = int(arg[2:])
 		else:
 			args_.append(arg)
+	port = find_port()
+	if not port:
+		print('Kronoz receiver not found', file=sys.stderr)
+		return -1
+	print('Connecting to', port)
+	com = open_port(port)
+	if com is None:
+		return -1
 	if setup_env():
 		return -1
 	app = QApplication(args_)
 	app.setStyle(ui_style)
-	gui = GUI(nLanes)
+	gui = GUI(com, nLanes)
 	gui.show()
 	app.exec_()
 	return 0
