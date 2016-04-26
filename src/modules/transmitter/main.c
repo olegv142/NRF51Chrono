@@ -243,6 +243,7 @@ int main(void)
     nrf_gpio_cfg_output(LED_PWR);
     btn_initialize();
     adc_initialize();
+    nrf_adc_start();
     rtc_initialize(rtc_handler);
 
     radio_configure(
