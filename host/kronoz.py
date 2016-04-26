@@ -468,7 +468,7 @@ class GUI(Kronoz, QWidget, gui_MainWindow):
 
 #### Controller interface ####
 
-valid_controllers   = ['USB VID:PID=0403:6001']
+valid_controllers   = ['USB VID:PID=0403:6001', 'FTDIBUS\\VID_0403+PID_6001']
 controller_baudrate = 115200
 controller_timeout  = 1
 controller_channels = 8
