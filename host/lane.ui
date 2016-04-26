@@ -46,7 +46,7 @@
         <item>
          <widget class="QLabel" name="staPktStat">
           <property name="text">
-           <string>99%</string>
+           <string>--</string>
           </property>
           <property name="alignment">
            <set>Qt::AlignCenter</set>
@@ -56,7 +56,7 @@
         <item>
          <widget class="QLabel" name="staVcc">
           <property name="text">
-           <string>2.8V</string>
+           <string>--</string>
           </property>
           <property name="alignment">
            <set>Qt::AlignCenter</set>
@@ -72,7 +72,7 @@
            </size>
           </property>
           <property name="text">
-           <string>ok</string>
+           <string>--</string>
           </property>
           <property name="alignment">
            <set>Qt::AlignCenter</set>
@@ -99,9 +99,9 @@
              <colorrole role="WindowText">
               <brush brushstyle="SolidPattern">
                <color alpha="255">
-                <red>0</red>
-                <green>0</green>
-                <blue>255</blue>
+                <red>130</red>
+                <green>130</green>
+                <blue>130</blue>
                </color>
               </brush>
              </colorrole>
@@ -110,9 +110,9 @@
              <colorrole role="WindowText">
               <brush brushstyle="SolidPattern">
                <color alpha="255">
-                <red>0</red>
-                <green>0</green>
-                <blue>255</blue>
+                <red>130</red>
+                <green>130</green>
+                <blue>130</blue>
                </color>
               </brush>
              </colorrole>
@@ -136,7 +136,7 @@
            </font>
           </property>
           <property name="text">
-           <string>00:00.000</string>
+           <string>--:--.---</string>
           </property>
          </widget>
         </item>
@@ -161,7 +161,7 @@
         <item>
          <widget class="QLabel" name="finPktStat">
           <property name="text">
-           <string>95%</string>
+           <string>--</string>
           </property>
           <property name="alignment">
            <set>Qt::AlignCenter</set>
@@ -171,7 +171,7 @@
         <item>
          <widget class="QLabel" name="finVcc">
           <property name="text">
-           <string>3.0V</string>
+           <string>--</string>
           </property>
           <property name="alignment">
            <set>Qt::AlignCenter</set>
@@ -187,7 +187,7 @@
            </size>
           </property>
           <property name="text">
-           <string>ok</string>
+           <string>--</string>
           </property>
           <property name="alignment">
            <set>Qt::AlignCenter</set>
