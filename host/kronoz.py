@@ -2,7 +2,7 @@ import os, sys, time, subprocess, traceback, serial, codecs, PyQt4
 from serial.tools.list_ports import comports
 from collections import namedtuple
 from PyQt4 import QtCore, QtGui, uic
-from PyQt4.QtGui import QApplication, QWidget, QStatusBar
+from PyQt4.QtGui import QApplication, QWidget, QShortcut, QKeySequence
 from PyQt4.QtCore import QTimer
 
 application_path = os.path.split(sys.argv[0])[0]
@@ -402,6 +402,13 @@ class GUI(Kronoz, QWidget, gui_MainWindow):
 		self.btSave  .clicked.connect(self.save_results)
 		self.btOpen  .clicked.connect(self.open_res_file)
 		self.btBrowse.clicked.connect(self.browse_res_folder)
+		self.shortcuts = (
+			QShortcut(QKeySequence('1'), self.btStart,  self.btStart .click),
+			QShortcut(QKeySequence('2'), self.btStop,   self.btStop  .click),
+			QShortcut(QKeySequence('3'), self.btSave,   self.btSave  .click),
+			QShortcut(QKeySequence('4'), self.btOpen,   self.btOpen  .click),
+			QShortcut(QKeySequence('5'), self.btBrowse, self.btBrowse.click)
+		)
 		self.set_state(Kronoz.Connecting)
 
 	def get_lanes(self):
