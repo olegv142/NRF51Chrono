@@ -116,6 +116,7 @@ class Lane:
 	# states
 	Disconnected = 0
 	Idle         = 1
+	Ready        = 2
 	Starting     = 3
 	Running      = 4
 	Completed    = 5
@@ -123,6 +124,7 @@ class Lane:
 	state_names = {
 		Disconnected : 'Disconnected',
 		Idle         : 'Idle',
+		Ready        : 'Ready',
 		Starting     : 'Starting',
 		Running      : 'Running',
 		Completed    : 'Completed',
@@ -134,17 +136,21 @@ class Lane:
 		self.i = i
 		self.result = None
 		self.state = Lane.Disconnected
+		self.last_ts       = None
+		self.idle_ts       = None
+		self.start_ts      = None
 		self.start_stat    = None
 		self.finish_stat   = None
 		self.start_status  = None
 		self.finish_status = None
-		self.start_epoch   = None
-		self.start_ts      = None
-		self.at_start      = False
 
 	def set_state(self, st):
-		dbg('[%d] ' % self.i, '%s -> %s', (Lane.state_names[self.state], Lane.state_names[st]))
-		self.state = st
+		if self.state != st:
+			dbg('[%d] ' % self.i, '%s -> %s', (Lane.state_names[self.state], Lane.state_names[st]))
+			self.state = st
+		if st == Lane.Idle:
+			self.update_result(0.)
+			self.idle_ts = self.last_ts
 
 	@staticmethod
 	def gate_status(ts, stat):
@@ -159,46 +165,49 @@ class Lane:
 
 	@staticmethod
 	def get_pressed_ts(stat):
-		assert stat.pressed_ts
-		return stat.last_ts - (stat.rep_ts - stat.pressed_ts)
+		if stat.pressed_ts:
+			return stat.last_ts - (stat.rep_ts - stat.pressed_ts)
+		else:
+			return 0
 
 	@staticmethod
 	def get_released_ts(stat):
-		assert stat.released_ts
-		return stat.last_ts - (stat.rep_ts - stat.released_ts)
+		if stat.released_ts:
+			return stat.last_ts - (stat.rep_ts - stat.released_ts)
+		else:
+			return 0
+
+	def do_start(self):
+		self.start_ts = Lane.get_released_ts(self.start_stat)
+		self.set_state(Lane.Running if self.start_ts else Lane.Failed)
 
 	def update(self, ts, start_stat, finish_stat):
+		self.last_ts      = ts
 		self.start_stat   = start_stat
 		self.finish_stat  = finish_stat
 		self.set_gates_status(Lane.gate_status(ts, start_stat), Lane.gate_status(ts, finish_stat))
 		if self.state == Lane.Disconnected:
 			self.set_state(Lane.Idle)
-			self.update_result(0.)
 			return
 
 		if self.state == Lane.Idle:
-			if start_stat.bt_pressed:
-				self.at_start = True
+			pressed_ts = Lane.get_pressed_ts(self.start_stat)
+			if pressed_ts > self.idle_ts:
+				self.set_state(Lane.Ready)
 			return
 
 		if self.state == Lane.Starting:
-			if start_stat.epoch != self.start_epoch:
-				self.set_state(Lane.Failed)
-				return
 			if start_stat.bt_pressed:
 				return
-			self.start_ts = Lane.get_released_ts(start_stat)
-			self.set_state(Lane.Running)
+			self.do_start()
 
 		if self.state == Lane.Running:
-			if finish_stat.pressed_ts:
-				finish_ts = Lane.get_pressed_ts(finish_stat)
-				if finish_ts > self.start_ts:
-					self.update_result(Lane.mils2sec(finish_ts - self.start_ts))
-					self.set_state(Lane.Completed)
-					return
-			# Just update time counter in running state
-			self.update_result(Lane.mils2sec(finish_stat.last_ts - self.start_ts))
+			finish_ts = Lane.get_pressed_ts(finish_stat)
+			if finish_ts > self.start_ts:
+				self.update_result(Lane.mils2sec(finish_ts - self.start_ts))
+				self.set_state(Lane.Completed)
+			else:
+				self.update_result(Lane.mils2sec(finish_stat.last_ts - self.start_ts))
 
 	def set_gates_status(self, start, finish):
 		self.start_status  = start
@@ -211,13 +220,11 @@ class Lane:
 		return self.start_status.online and self.finish_status.online
 
 	def start(self):
-		if self.state == Lane.Idle and self.at_start and self.is_online():
-			self.start_epoch = self.start_stat.epoch
+		if self.state == Lane.Ready and self.is_online():
 			if self.start_stat.bt_pressed:
 				self.set_state(Lane.Starting)
-			elif self.start_stat.released_ts:
-				self.start_ts = Lane.get_released_ts(self.start_stat)
-				self.set_state(Lane.Running)
+			else:
+				self.do_start()
 
 	def is_busy(self):
 		return self.state == Lane.Starting or self.state == Lane.Running
@@ -226,28 +233,27 @@ class Lane:
 		if not self.is_busy():
 			return
 		if self.state == Lane.Running:
-			self.update_result(Lane.mils2sec(self.finish_stat.last_ts - self.start_ts))
+			self.update_result(Lane.mils2sec(self.last_ts - self.start_ts))
 		self.set_state(Lane.Completed)
 
 	def reset(self):
-		if self.state == Lane.Disconnected:
-			return
-		self.set_state(Lane.Idle)
-		self.at_start = False
-		self.update_result(0.)
+		if self.state != Lane.Disconnected:
+			self.set_state(Lane.Idle)
 
 class Kronoz:
 	# states
 	Disconnected = 0
 	Connecting   = 1
 	Idle         = 2
-	Running      = 3
-	Completed    = 4
-	Failed       = 5
+	Ready        = 3
+	Running      = 4
+	Completed    = 5
+	Failed       = 6
 	state_names  = {
 		Disconnected : 'Disconnected',
 		Connecting   : 'Connecting',
 		Idle         : 'Idle',
+		Ready        : 'Ready',
 		Running      : 'Running',
 		Completed    : 'Completed',
 		Failed       : 'Failed'
@@ -257,14 +263,15 @@ class Kronoz:
 		self.state = Kronoz.Disconnected
 
 	def set_state(self, st):
-		dbg('[K] ', '%s -> %s', (Kronoz.state_names[self.state], Kronoz.state_names[st]))
-		self.state = st
+		if self.state != st:
+			dbg('[K] ', '%s -> %s', (Kronoz.state_names[self.state], Kronoz.state_names[st]))
+			self.state = st
 
 	def get_lanes(self):
 		return []
 
 	def start(self):
-		if self.state != Kronoz.Idle:
+		if self.state != Kronoz.Ready:
 			return
 		started = False
 		for l in self.get_lanes():
@@ -273,6 +280,8 @@ class Kronoz:
 				started = True
 		if started:
 			self.set_state(Kronoz.Running)
+		else:
+			self.set_state(Kronoz.Completed)
 
 	def stop(self):
 		if self.state != Kronoz.Running:
@@ -295,7 +304,7 @@ class Kronoz:
 			self.set_state(Kronoz.Idle)
 			info('connected to group #%u', stat_set.group)
 		lanes = self.get_lanes()
-		running = False
+		ready, running = False, False
 		stats = stat_set.gates
 		n = min(len(stats) // 2, len(lanes))
 		for i in range(n):
@@ -303,8 +312,12 @@ class Kronoz:
 			l.update(stat_set.ts, stats[2*i], stats[2*i+1])
 			if l.is_busy():
 				running = True
+			if l.state == Lane.Ready:
+				ready = True
 		if self.state == Kronoz.Running and not running:
 			self.set_state(Kronoz.Completed)
+		if self.state == Kronoz.Idle and ready:
+			self.set_state(Kronoz.Ready)
 
 #### GUI implementation ####
 
@@ -318,14 +331,17 @@ class GUILane(Lane, QWidget, lane_Widget):
 		self.fFinish.setAutoFillBackground(True)
 
 	def set_state(self, st):
+		old_st = self.state
 		Lane.set_state(self, st)
+		if st == old_st:
+			return
 		if st == Lane.Idle:
 			setWidgetFogColor(self.lTime, QtCore.Qt.black)
 		elif st == Lane.Failed:
 			setWidgetFogColor(self.lTime, QtCore.Qt.red)
 		elif st == Lane.Completed:
 			setWidgetFogColor(self.lTime, QtCore.Qt.darkGreen)
-		else:
+		else: # Ready, Starting, Running
 			setWidgetFogColor(self.lTime, QtCore.Qt.blue)
 
 	@staticmethod
@@ -392,9 +408,12 @@ class GUI(Kronoz, QWidget, gui_MainWindow):
 		return self.lanes
 
 	def set_state(self, st):
+		old_st = self.state
 		Kronoz.set_state(self, st)
+		if st == old_st:
+			return
 		self.show_status(Kronoz.state_names[st], QtCore.Qt.red if st == Kronoz.Failed else QtCore.Qt.black)
-		self.btStart.setEnabled(st == Kronoz.Idle)
+		self.btStart.setEnabled(st == Kronoz.Ready)
 		self.btStop .setEnabled(st == Kronoz.Running)
 		self.btSave .setEnabled(st == Kronoz.Completed)
 		if st == Kronoz.Failed:
