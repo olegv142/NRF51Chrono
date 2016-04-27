@@ -54,6 +54,7 @@ def err(fmt, args = None):
 	if gui is not None:
 		gui.show_message(msg, QtCore.Qt.red)
 	print(format_timestamp() + msg, file=log_file)
+	log_file.flush()
 
 def errx(fmt, args = None):
 	msg = format_msg('Error: ', fmt, args)
@@ -61,6 +62,7 @@ def errx(fmt, args = None):
 		gui.show_message(msg, QtCore.Qt.red)
 	print(format_timestamp() + msg, file=log_file)
 	traceback.print_exc(file=log_file)
+	log_file.flush()
 
 def warn(fmt, args = None):
 	msg = format_msg('Warning: ', fmt, args)
@@ -91,14 +93,14 @@ def setup_env():
 	except:
 		print('Failed to open log file ' + log_filename, file=sys.stderr)
 		traceback.print_exc(file=sys.stderr)
-		return -1
+		return False
 	try:
 		res_file = codecs.open(res_filename, 'a', res_enc)
 	except:
 		print('Failed to open results file ' + res_filename, file=sys.stderr)
 		traceback.print_exc(file=sys.stderr)
-		return -1
-	return 0
+		return False
+	return True
 
 def setWidgetBkgColor(w, c):
 	p = w.palette()
@@ -246,25 +248,27 @@ class Lane:
 
 class Kronoz:
 	# states
-	Disconnected = 0
-	Connecting   = 1
-	Idle         = 2
-	Ready        = 3
-	Running      = 4
-	Completed    = 5
-	Failed       = 6
-	state_names  = {
-		Disconnected : 'Disconnected',
-		Connecting   : 'Connecting',
-		Idle         : 'Idle',
-		Ready        : 'Ready',
-		Running      : 'Running',
-		Completed    : 'Completed',
-		Failed       : 'Failed'
+	Uninitialized = -1
+	Disconnected  = 0
+	Connecting    = 1
+	Idle          = 2
+	Ready         = 3
+	Running       = 4
+	Completed     = 5
+	Failed        = 6
+	state_names   = {
+		Uninitialized : 'Uninitialized',
+		Disconnected  : 'Disconnected',
+		Connecting    : 'Connecting',
+		Idle          : 'Idle',
+		Ready         : 'Ready',
+		Running       : 'Running',
+		Completed     : 'Completed',
+		Failed        : 'Failed'
 	}
 
 	def __init__(self):
-		self.state = Kronoz.Disconnected
+		self.state = Kronoz.Uninitialized
 
 	def set_state(self, st):
 		if self.state != st:
@@ -398,9 +402,6 @@ class GUI(Kronoz, QWidget, gui_MainWindow):
 		for l in self.lanes:
 			self.laneList.addWidget(l)
 		self.com = com
-		self.timer = QTimer()
-		self.timer.timeout.connect(self.poll_timer)
-		self.timer.start(self.poll_interval)
 		self.btStart .clicked.connect(self.start)
 		self.btStop  .clicked.connect(self.stop)
 		self.btSave  .clicked.connect(self.save_results)
@@ -413,22 +414,40 @@ class GUI(Kronoz, QWidget, gui_MainWindow):
 			QShortcut(QKeySequence('4'), self.btOpen,   self.btOpen  .click),
 			QShortcut(QKeySequence('5'), self.btBrowse, self.btBrowse.click)
 		)
-		self.set_state(Kronoz.Connecting)
+		if com is not None:
+			self.timer = QTimer()
+			self.timer.timeout.connect(self.poll_timer)
+			self.timer.start(self.poll_interval)
+			self.set_state(Kronoz.Connecting)
+		else:
+			self.timer = None
+			self.set_state(Kronoz.Disconnected)
 
 	def get_lanes(self):
 		return self.lanes
+
+	@staticmethod
+	def status_color(st):
+		if st == Kronoz.Failed:
+			return QtCore.Qt.red
+		elif st == Kronoz.Disconnected:
+			return QtCore.Qt.magenta
+		else:
+			return QtCore.Qt.black
 
 	def set_state(self, st):
 		old_st = self.state
 		Kronoz.set_state(self, st)
 		if st == old_st:
 			return
-		self.show_status(Kronoz.state_names[st], QtCore.Qt.red if st == Kronoz.Failed else QtCore.Qt.black)
+		self.show_status(Kronoz.state_names[st], GUI.status_color(st))
 		self.btStart.setEnabled(st == Kronoz.Ready)
 		self.btStop .setEnabled(st == Kronoz.Running)
 		self.btSave .setEnabled(st == Kronoz.Completed)
 		if st == Kronoz.Failed:
-			self.timer.stop()
+			if self.timer is not None:
+				self.timer.stop()
+				self.timer = None
 
 	@staticmethod
 	def sbar_show_message(sb, msg, color):
@@ -486,10 +505,14 @@ def find_port():
 
 def open_port(port):
 	try:
-		return serial.Serial(port, timeout = controller_timeout, baudrate = controller_baudrate)
+		com = serial.Serial(port, timeout = controller_timeout, baudrate = controller_baudrate)
+		if com.is_open:
+			return com
+		else:
+			err('Failed to open', port)
+			return None
 	except:
 		errx('Failed to open', port)
-		traceback.print_exc(file=sys.stderr)		
 		return None
 
 def read_stat(com):
@@ -529,16 +552,13 @@ def main():
 			nLanes = int(arg[2:])
 		else:
 			args_.append(arg)
+	if not setup_env():
+		return -1
 	port = find_port()
 	if not port:
-		print('Kronoz receiver not found', file=sys.stderr)
-		return -1
-	print('Connecting to', port)
+		err('Kronoz receiver not found')
+	info('Connecting to %s', port)
 	com = open_port(port)
-	if com is None:
-		return -1
-	if setup_env():
-		return -1
 	app = QApplication(args_)
 	app.setStyle(ui_style)
 	gui = GUI(com, nLanes)
