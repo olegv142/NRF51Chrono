@@ -347,7 +347,7 @@ class GUILane(Lane, QWidget, lane_Widget):
 	@staticmethod
 	def format_time(t):
 		ti = int(t)
-		return '%u:%02u.%03u' % (ti//60, ti%60, int(1000*(t-ti)))
+		return '%u:%02u.%02u' % (ti//60, ti%60, int(100*(t-ti)))
 
 	def update_result(self, res):
 		Lane.update_result(self, res)
