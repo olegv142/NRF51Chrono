@@ -191,10 +191,11 @@ class Lane:
 			return
 
 		if self.state == Lane.Idle:
-			pressed_ts = Lane.get_pressed_ts(self.start_stat)
-			if pressed_ts > self.idle_ts:
-				self.set_state(Lane.Ready)
-			return
+			if self.is_online():
+				pressed_ts = Lane.get_pressed_ts(self.start_stat)
+				if pressed_ts > self.idle_ts:
+					self.set_state(Lane.Ready)
+				return
 
 		if self.state == Lane.Starting:
 			if start_stat.bt_pressed:
@@ -220,11 +221,14 @@ class Lane:
 		return self.start_status.online and self.finish_status.online
 
 	def start(self):
-		if self.state == Lane.Ready and self.is_online():
-			if self.start_stat.bt_pressed:
-				self.set_state(Lane.Starting)
+		if self.state == Lane.Ready:
+			if self.is_online():
+				if self.start_stat.bt_pressed:
+					self.set_state(Lane.Starting)
+				else:
+					self.do_start()
 			else:
-				self.do_start()
+				self.set_state(Lane.Failed)
 
 	def is_busy(self):
 		return self.state == Lane.Starting or self.state == Lane.Running
