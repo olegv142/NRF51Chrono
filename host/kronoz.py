@@ -84,6 +84,13 @@ def trace(pref, fmt, args = None):
 	if log_trace_en:
 		dbg(pref, fmt, args)
 
+def traced(f):
+	def proxy(*args):
+		trace(f.__name__, ' %s', (args,))
+		r = f(*args)
+		trace(f.__name__, ' -> %s', (r,))
+	return proxy
+
 #### Helper routines ####
 
 log_file_size_limit = 4*1024*1024
@@ -311,6 +318,7 @@ class Kronoz:
 	def get_lanes(self):
 		return []
 
+	@traced
 	def start(self):
 		if self.state != Kronoz.Ready:
 			return
@@ -324,6 +332,7 @@ class Kronoz:
 		else:
 			self.set_state(Kronoz.Completed)
 
+	@traced
 	def stop(self):
 		if self.state != Kronoz.Running:
 			return
@@ -331,6 +340,7 @@ class Kronoz:
 			l.stop()
 		self.set_state(Kronoz.Completed)
 
+	@traced
 	def reset(self):
 		if self.state != Kronoz.Completed:
 			return
@@ -435,8 +445,8 @@ class GUI(Kronoz, QWidget, gui_MainWindow):
 		for l in self.lanes:
 			self.laneList.addWidget(l)
 		self.com = com
-		self.btStart .clicked.connect(self.start)
-		self.btStop  .clicked.connect(self.stop)
+		self.btStart .clicked.connect(self.on_start)
+		self.btStop  .clicked.connect(self.on_stop)
 		self.btSave  .clicked.connect(self.save_results)
 		self.btOpen  .clicked.connect(self.open_res_file)
 		self.btBrowse.clicked.connect(self.browse_res_folder)
@@ -492,6 +502,12 @@ class GUI(Kronoz, QWidget, gui_MainWindow):
 
 	def show_message(self, msg, color=QtCore.Qt.black):
 		GUI.sbar_show_message(self.sbar1, msg, color)
+
+	def on_start(self):
+		self.start()
+
+	def on_stop(self):
+		self.stop()
 
 	def save_results(self):
 		try:
