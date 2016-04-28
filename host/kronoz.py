@@ -24,14 +24,13 @@ res_filename = home_folder + os.sep + 'kronoz.txt'
 res_enc = 'utf-8-sig'
 res_eol = '\r\n'
 
-log_file = sys.stderr
-res_file = None
-
 StatSet    = namedtuple('StatSet',    ('group', 'ts', 'gates'))
 GateStat   = namedtuple('GateStat',   ('epoch', 'rep_total', 'rep_received', 'first_ts', 'last_ts', 'rep_sn', 'rep_ts', 'bt_pressed', 'pressed_ts', 'released_ts', 'vcc'))
 GateStatus = namedtuple('GateStatus', ('pkt_receiption', 'vcc', 'online', 'pressed'))
 
 #### Logging facilities ####
+
+log_file = sys.stderr
 
 def format_date_time_(t):
 	return time.strftime('%d/%m/%y\t%H:%M:%S', time.localtime(t))
@@ -91,14 +90,7 @@ def setup_env():
 	try:
 		log_file = open(log_filename, 'w')
 	except:
-		print('Failed to open log file ' + log_filename, file=sys.stderr)
-		traceback.print_exc(file=sys.stderr)
-		return False
-	try:
-		res_file = codecs.open(res_filename, 'a', res_enc)
-	except:
-		print('Failed to open results file ' + res_filename, file=sys.stderr)
-		traceback.print_exc(file=sys.stderr)
+		errx('Failed to open log file %s', log_filename)
 		return False
 	return True
 
@@ -461,11 +453,16 @@ class GUI(Kronoz, QWidget, gui_MainWindow):
 		GUI.sbar_show_message(self.sbar1, msg, color)
 
 	def save_results(self):
+		try:
+			res_file = codecs.open(res_filename, 'a', res_enc)
+		except:
+			errx('Failed to open results file %s', res_filename)
+			return
 		t = format_date_time()
 		for l in self.lanes:
 			if l.state == Lane.Completed:
 				print(('%s\t%u\t%s\t%.3f' + res_eol) % (t, l.i, l.leName.text(), l.result), file=res_file)
-		res_file.flush()
+		res_file.close()
 		self.reset()
 
 	def open_res_file(self):
