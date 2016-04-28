@@ -31,6 +31,7 @@ GateStatus = namedtuple('GateStatus', ('pkt_receiption', 'vcc', 'online', 'press
 #### Logging facilities ####
 
 log_file = sys.stderr
+log_trace_en = True
 
 def format_date_time_(t):
 	return time.strftime('%d/%m/%y\t%H:%M:%S', time.localtime(t))
@@ -78,6 +79,10 @@ def info(fmt, args = None):
 def dbg(pref, fmt, args = None):
 	msg = format_msg(pref, fmt, args)
 	print(format_timestamp() + msg, file=log_file)
+
+def trace(pref, fmt, args = None):
+	if log_trace_en:
+		dbg(pref, fmt, args)
 
 #### Helper routines ####
 
@@ -140,11 +145,17 @@ class Lane:
 
 	def set_state(self, st):
 		if self.state != st:
-			dbg('[%d] ' % self.i, '%s -> %s', (Lane.state_names[self.state], Lane.state_names[st]))
+			if st == Lane.Completed:
+				dbg('[%d] ' % self.i, '%s -> %s %.3f sec', (Lane.state_names[self.state], Lane.state_names[st], self.result))
+			else:
+				dbg('[%d] ' % self.i, '%s -> %s', (Lane.state_names[self.state], Lane.state_names[st]))
 			self.state = st
 		if st == Lane.Idle:
 			self.update_result(0.)
 			self.idle_ts = self.last_ts
+		if (self.start_stat is not None and self.start_stat.epoch) or (self.finish_stat is not None and self.finish_stat.epoch):
+			trace('[%d] ' % self.i, '%s ts=%s start: %s %s finish: %s %s',
+				(Lane.state_names[st], self.last_ts, self.start_stat, self.start_status, self.finish_stat, self.finish_status))
 
 	@staticmethod
 	def gate_status(ts, stat):
