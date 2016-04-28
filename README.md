@@ -5,5 +5,5 @@ The gates are continuously reporting their status to receiver module using propr
 application program running on the host is able to visualize gates status information and collect time data.
 
 Both start and finish gates are using NRF51822 modules running identical firmware. The module role is being set by jumpers
-connected to module IO pads. The receiver module is using the same NRF module paired with FT245RL USB-serial adaptor operating
+connected to module IO pads. The receiver module is using the same NRF module paired with FT232RL USB-serial adaptor operating
 at 115200 baud rate.
