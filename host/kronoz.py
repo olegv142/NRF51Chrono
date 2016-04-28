@@ -611,8 +611,10 @@ def main():
 	port = find_port()
 	if not port:
 		err('Kronoz receiver not found')
-	info('Connecting to %s', port)
-	com = open_port(port)
+		com = None
+	else:
+		info('Connecting to %s', port)
+		com = open_port(port)
 	app = QApplication(args_)
 	app.setStyle(ui_style)
 	gui = GUI(com, nLanes)
