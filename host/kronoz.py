@@ -86,17 +86,47 @@ def trace(pref, fmt, args = None):
 
 #### Helper routines ####
 
+log_file_size_limit = 4*1024*1024
+log_file_rotate_group = 2
+
+def rotate_logs(path):
+	try:
+		os.unlink('%s.%d' % (path, log_file_rotate_group))
+	except:
+		pass
+	for i in range(log_file_rotate_group, 0, -1):
+		old_path = '%s.%d' % (path, i - 1) if i > 1 else path
+		new_path = '%s.%d' % (path, i)
+		try:
+			os.rename(old_path, new_path)
+		except:
+			pass
+
+def open_log(path):
+	try:
+		out_file_sz = 0
+		try:
+			out_file_sz = os.stat(path).st_size
+		except:
+			pass
+		if out_file_sz > log_file_size_limit:
+			rotate_logs(path)
+		return open(path, 'a')
+	except:
+		errx('Failed to open log file %s', path)
+		return None
+
 def setup_env():
-	global log_file, res_file
+	global log_file
 	try:
 		os.mkdir(home_folder)
 	except:
 		pass
-	try:
-		log_file = open(log_filename, 'w')
-	except:
-		errx('Failed to open log file %s', log_filename)
+
+	log_file = open_log(log_filename)
+	if log_file is None:
 		return False
+
 	return True
 
 def setWidgetBkgColor(w, c):
