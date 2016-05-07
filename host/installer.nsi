@@ -8,7 +8,7 @@
 !define PFOLDER      "${PROD_NAME}"
 !define PRODUCT      "${PROD_NAME}"
 !define YEARS        "2016"
-!define VERSION      "0.6.0.0"
+!define VERSION      "0.7.0.0"
 
 !define UNINSTALL_NAME "${TITLE} software"
 

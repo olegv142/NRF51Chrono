@@ -148,6 +148,51 @@ def setWidgetFogColor(w, c):
 
 #### State machines ####
 
+class Gate:
+	offline_tout = 3 * 1024 # 3 sec
+	status_tout = offline_tout
+
+	def __init__(self):
+		self.stat = None
+		self.status = GateStatus(pkt_receiption = None, vcc = None, online = False, pressed = False)
+		self.epoch  = 0
+		self.history = None
+		self.history_ts = None
+
+	def update(self, ts, stat):
+		if not stat.epoch:
+			return
+
+		is_online = stat.last_ts + Gate.offline_tout > ts
+
+		if stat.epoch != self.epoch:
+			self.epoch = stat.epoch
+			self.history = (stat, stat)
+			self.history_ts = stat.last_ts
+			self.status = GateStatus(
+					pkt_receiption = float(stat.rep_received) / stat.rep_total if is_online else 0.,
+					vcc = stat.vcc / 1000.,
+					online = is_online,
+					pressed = stat.bt_pressed
+				)
+			return
+
+		if stat.last_ts > self.history_ts + Gate.status_tout:
+			self.history = (stat, self.history[0])
+			self.history_ts = stat.last_ts
+
+		if is_online and stat.rep_total > self.history[1].rep_total:
+			receiption = float(stat.rep_received - self.history[1].rep_received) / (stat.rep_total - self.history[1].rep_total)
+		else:
+			receiption = 0.
+
+		self.status = GateStatus(
+				pkt_receiption = receiption,
+				vcc = stat.vcc / 1000.,
+				online = is_online,
+				pressed = stat.bt_pressed
+			)
+
 class Lane:
 	# states
 	Disconnected = 0
@@ -166,7 +211,6 @@ class Lane:
 		Completed    : 'Completed',
 		Failed       : 'Failed'
 	}
-	offline_tout = 3 * 1024 # 3 sec
 
 	def __init__(self, i):
 		self.i = i
@@ -175,10 +219,8 @@ class Lane:
 		self.last_ts       = None
 		self.idle_ts       = None
 		self.start_ts      = None
-		self.start_stat    = None
-		self.finish_stat   = None
-		self.start_status  = None
-		self.finish_status = None
+		self.start         = Gate()
+		self.finish        = Gate()
 
 	def set_state(self, st):
 		if self.state != st:
@@ -190,16 +232,9 @@ class Lane:
 		if st == Lane.Idle:
 			self.update_result(0.)
 			self.idle_ts = self.last_ts
-		if (self.start_stat is not None and self.start_stat.epoch) or (self.finish_stat is not None and self.finish_stat.epoch):
+		if (self.start.stat is not None and self.start.stat.epoch) or (self.finish.stat is not None and self.finish.stat.epoch):
 			trace('[%d] ' % self.i, '%s ts=%s start: %s %s finish: %s %s',
-				(Lane.state_names[st], self.last_ts, self.start_stat, self.start_status, self.finish_stat, self.finish_status))
-
-	@staticmethod
-	def gate_status(ts, stat):
-		if not stat.epoch:
-			return GateStatus(pkt_receiption = None, vcc = None, online = False, pressed = False)
-		else:
-			return GateStatus(pkt_receiption = float(stat.rep_received) / stat.rep_total, vcc = stat.vcc / 1000., online = (stat.last_ts + Lane.offline_tout > ts), pressed = stat.bt_pressed)
+				(Lane.state_names[st], self.last_ts, self.start.stat, self.start.status, self.finish.stat, self.finish.status))
 
 	@staticmethod
 	def mils2sec(mils):
@@ -220,21 +255,20 @@ class Lane:
 			return 0
 
 	def do_start(self):
-		self.start_ts = Lane.get_released_ts(self.start_stat)
+		self.start_ts = Lane.get_released_ts(self.start.stat)
 		self.set_state(Lane.Running if self.start_ts else Lane.Failed)
 
 	def update(self, ts, start_stat, finish_stat):
 		self.last_ts      = ts
-		self.start_stat   = start_stat
-		self.finish_stat  = finish_stat
-		self.set_gates_status(Lane.gate_status(ts, start_stat), Lane.gate_status(ts, finish_stat))
+		self.start .update(ts, start_stat)
+		self.finish.update(ts, finish_stat)
 		if self.state == Lane.Disconnected:
 			self.set_state(Lane.Idle)
 			return
 
 		if self.state == Lane.Idle:
 			if self.is_online():
-				pressed_ts = Lane.get_pressed_ts(self.start_stat)
+				pressed_ts = Lane.get_pressed_ts(start_stat)
 				if pressed_ts > self.idle_ts:
 					self.set_state(Lane.Ready)
 				return
@@ -252,20 +286,16 @@ class Lane:
 			else:
 				self.update_result(Lane.mils2sec(finish_stat.last_ts - self.start_ts))
 
-	def set_gates_status(self, start, finish):
-		self.start_status  = start
-		self.finish_status = finish
-
 	def update_result(self, res):
 		self.result = res
 
 	def is_online(self):
-		return self.start_status.online and self.finish_status.online
+		return self.start.status.online and self.finish.status.online
 
 	def start(self):
 		if self.state == Lane.Ready:
 			if self.is_online():
-				if self.start_stat.bt_pressed:
+				if self.start.stat.bt_pressed:
 					self.set_state(Lane.Starting)
 				else:
 					self.do_start()
@@ -428,11 +458,10 @@ class GUILane(Lane, QWidget, lane_Widget):
 			status.setText('offline')
 			setWidgetBkgColor(frame, QtCore.Qt.lightGray)
 
-	def set_gates_status(self, start, finish):
-		Lane.set_gates_status(self, start, finish)
-		GUILane.show_gate_status(start,  self.fStart,  self.staPktStat, self.staVcc, self.staStatus)
-		GUILane.show_gate_status(finish, self.fFinish, self.finPktStat, self.finVcc, self.finStatus)
-
+	def update(self, ts, start_stat, finish_stat):
+		Lane.update(self, ts, start_stat, finish_stat)
+		GUILane.show_gate_status(self.start.status,  self.fStart,  self.staPktStat, self.staVcc, self.staStatus)
+		GUILane.show_gate_status(self.finish.status, self.fFinish, self.finPktStat, self.finVcc, self.finStatus)
 
 class GUI(Kronoz, QWidget, gui_MainWindow):
 	poll_interval = 200
