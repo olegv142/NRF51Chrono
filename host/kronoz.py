@@ -167,31 +167,27 @@ class Gate:
 
 		if stat.epoch != self.epoch:
 			self.epoch = stat.epoch
-			self.history = (stat, stat)
+			self.history = (stat, None)
 			self.history_ts = stat.last_ts
+
+		if stat.last_ts > self.history_ts + Gate.status_tout:
+			self.history = (stat, self.history[0])
+			self.history_ts = stat.last_ts
+
+		if self.history[1] is None:
 			self.status = GateStatus(
 					pkt_receiption = float(stat.rep_received) / stat.rep_total if is_online else 0.,
 					vcc = stat.vcc / 1000.,
 					online = is_online,
 					pressed = stat.bt_pressed
 				)
-			return
-
-		if stat.last_ts > self.history_ts + Gate.status_tout:
-			self.history = (stat, self.history[0])
-			self.history_ts = stat.last_ts
-
-		if is_online and stat.rep_total > self.history[1].rep_total:
-			receiption = float(stat.rep_received - self.history[1].rep_received) / (stat.rep_total - self.history[1].rep_total)
 		else:
-			receiption = 0.
-
-		self.status = GateStatus(
-				pkt_receiption = receiption,
-				vcc = stat.vcc / 1000.,
-				online = is_online,
-				pressed = stat.bt_pressed
-			)
+			self.status = GateStatus(
+					pkt_receiption = float(stat.rep_received - self.history[1].rep_received) / (stat.rep_total - self.history[1].rep_total) if is_online else 0.,
+					vcc = stat.vcc / 1000.,
+					online = is_online,
+					pressed = stat.bt_pressed
+				)
 
 class Lane:
 	# states
