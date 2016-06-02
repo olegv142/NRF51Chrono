@@ -21,6 +21,7 @@ gui = None
 home_folder = os.environ['USERPROFILE'] + os.sep + 'kronoz'
 log_filename = home_folder + os.sep + 'kronoz.log'
 res_filename = home_folder + os.sep + 'kronoz.txt'
+err_filename = home_folder + os.sep + 'kronoz.err'
 res_enc = 'utf-8-sig'
 res_eol = '\r\n'
 
@@ -129,6 +130,8 @@ def setup_env():
 		os.mkdir(home_folder)
 	except:
 		pass
+
+	sys.stdout = sys.stderr = open(err_filename, 'w')
 
 	log_file = open_log(log_filename)
 	if log_file is None:
@@ -589,10 +592,10 @@ def open_port(port):
 		if com.is_open:
 			return com
 		else:
-			err('Failed to open', port)
+			err('Failed to open %s', port)
 			return None
 	except:
-		errx('Failed to open', port)
+		errx('Failed to open %s', port)
 		return None
 
 def read_stat(com):
