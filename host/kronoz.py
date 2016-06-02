@@ -153,9 +153,9 @@ class Gate:
 	status_tout = offline_tout
 
 	def __init__(self):
-		self.stat = None
-		self.status = GateStatus(pkt_receiption = None, vcc = None, online = False, pressed = False)
+		self.stat   = None
 		self.epoch  = 0
+		self.status = GateStatus(pkt_receiption = None, vcc = None, online = False, pressed = False)
 		self.history = None
 		self.history_ts = None
 
@@ -163,6 +163,7 @@ class Gate:
 		if not stat.epoch:
 			return
 
+		self.stat = stat
 		is_online = stat.last_ts + Gate.offline_tout > ts
 
 		if stat.epoch != self.epoch:
@@ -215,8 +216,8 @@ class Lane:
 		self.last_ts       = None
 		self.idle_ts       = None
 		self.start_ts      = None
-		self.start         = Gate()
-		self.finish        = Gate()
+		self.start_gt      = Gate()
+		self.finish_gt     = Gate()
 
 	def set_state(self, st):
 		if self.state != st:
@@ -228,9 +229,9 @@ class Lane:
 		if st == Lane.Idle:
 			self.update_result(0.)
 			self.idle_ts = self.last_ts
-		if (self.start.stat is not None and self.start.stat.epoch) or (self.finish.stat is not None and self.finish.stat.epoch):
+		if self.start_gt.stat is not None and self.finish_gt.stat is not None:
 			trace('[%d] ' % self.i, '%s ts=%s start: %s %s finish: %s %s',
-				(Lane.state_names[st], self.last_ts, self.start.stat, self.start.status, self.finish.stat, self.finish.status))
+				(Lane.state_names[st], self.last_ts, self.start_gt.stat, self.start_gt.status, self.finish_gt.stat, self.finish_gt.status))
 
 	@staticmethod
 	def mils2sec(mils):
@@ -251,13 +252,13 @@ class Lane:
 			return 0
 
 	def do_start(self):
-		self.start_ts = Lane.get_released_ts(self.start.stat)
+		self.start_ts = Lane.get_released_ts(self.start_gt.stat)
 		self.set_state(Lane.Running if self.start_ts else Lane.Failed)
 
 	def update(self, ts, start_stat, finish_stat):
 		self.last_ts      = ts
-		self.start .update(ts, start_stat)
-		self.finish.update(ts, finish_stat)
+		self.start_gt .update(ts, start_stat)
+		self.finish_gt.update(ts, finish_stat)
 		if self.state == Lane.Disconnected:
 			self.set_state(Lane.Idle)
 			return
@@ -286,12 +287,12 @@ class Lane:
 		self.result = res
 
 	def is_online(self):
-		return self.start.status.online and self.finish.status.online
+		return self.start_gt.status.online and self.finish_gt.status.online
 
 	def start(self):
 		if self.state == Lane.Ready:
 			if self.is_online():
-				if self.start.stat.bt_pressed:
+				if self.start_gt.stat.bt_pressed:
 					self.set_state(Lane.Starting)
 				else:
 					self.do_start()
@@ -456,8 +457,8 @@ class GUILane(Lane, QWidget, lane_Widget):
 
 	def update(self, ts, start_stat, finish_stat):
 		Lane.update(self, ts, start_stat, finish_stat)
-		GUILane.show_gate_status(self.start.status,  self.fStart,  self.staPktStat, self.staVcc, self.staStatus)
-		GUILane.show_gate_status(self.finish.status, self.fFinish, self.finPktStat, self.finVcc, self.finStatus)
+		GUILane.show_gate_status(self.start_gt.status,  self.fStart,  self.staPktStat, self.staVcc, self.staStatus)
+		GUILane.show_gate_status(self.finish_gt.status, self.fFinish, self.finPktStat, self.finVcc, self.finStatus)
 
 class GUI(Kronoz, QWidget, gui_MainWindow):
 	poll_interval = 200
